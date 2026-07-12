@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "60857387958",
+    "project_id": "fimustrack-de303",
+    "storage_bucket": "fimustrack-de303.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:60857387958:android:3240bd33da01e96e064f17",
+        "android_client_info": {
+          "package_name": "com.monitrack.monitrack"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "60857387958-er15r76tt09pkco2fo5i3q6ti1c6pp9q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-LEEiOM3Rfb9hMrAZXYOAfctdB3wtcCw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "60857387958-er15r76tt09pkco2fo5i3q6ti1c6pp9q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

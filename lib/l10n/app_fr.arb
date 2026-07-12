@@ -1,0 +1,227 @@
+{
+  "@@locale": "fr",
+  "appTitle": "FIMUS",
+  "settings": "Paramètres",
+  "preferences": "Préférences",
+  "operators": "Opérateurs",
+  "ussdCodes": "Codes USSD",
+  "ussdCategories": "Catégories USSD",
+  "expenseCategories": "Catégories Dépenses",
+  "appLanguage": "Langue de l'application",
+  "currency": "Devise",
+  "french": "Français",
+  "english": "English",
+  "addOperator": "Ajouter un opérateur",
+  "addUssdCodeFor": "Ajouter un code USSD pour :",
+  "noOperatorAvailable": "Aucun opérateur disponible. Ajoutez-en un d'abord.",
+  "addExpenseCategory": "Ajouter une catégorie de dépense",
+  "addUssdCategory": "Ajouter une catégorie USSD",
+  "categoryName": "Nom de la catégorie",
+  "addNew": "Créer Nouvelle",
+  "cancel": "Annuler",
+  "add": "Ajouter",
+  "editOperator": "Modifier l'opérateur",
+  "country": "Pays",
+  "allCountries": "Tous les pays",
+  "sortByCountry": "Trier par pays",
+  "operatorName": "Nom de l'opérateur",
+  "yourPhoneNumber": "Votre numéro de téléphone",
+  "save": "Enregistrer",
+  "deleteOperator": "Supprimer l'opérateur",
+  "deleteOperatorConfirm": "Êtes-vous sûr de vouloir supprimer l'opérateur {name} ? Toutes les opérations USSD associées seront également supprimées.",
+  "@deleteOperatorConfirm": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "delete": "Supprimer",
+  "myNumber": "Mon numéro: {number}",
+  "@myNumber": {
+    "placeholders": {
+      "number": { "type": "String" }
+    }
+  },
+  "noNumberDefined": "Aucun numéro défini",
+  "availableVariables": "Variables disponibles: {variables}",
+  "@availableVariables": {
+    "placeholders": {
+      "variables": { "type": "String" }
+    }
+  },
+  "ussdTemplate": "Modèle de code USSD",
+  "codeUpdatedSuccess": "Code mis à jour avec succès",
+  "resetToDefault": "Réinitialiser",
+  "codeResetSuccess": "Code réinitialisé par défaut",
+  "cannotDeleteOther": "La catégorie 'Autre' ne peut pas être supprimée",
+  "expenses": "Dépenses",
+  "dashboard": "Dashboard",
+  "history": "Historique",
+  "accounts": "Comptes",
+  "newOperation": "Nouvelle opération",
+  "ussdMenu": "USSD",
+  "expense": "Dépense",
+  "income": "Revenu",
+  "monthOverview": "Aperçu du mois",
+  "incomes": "Revenus",
+  "yourAccounts": "Vos Comptes",
+  "totalBalance": "Solde Total",
+  "noAccountSaved": "Aucun compte enregistré.",
+  "today": "Aujourd'hui",
+  "thisWeek": "Cette semaine",
+  "thisMonth": "Ce mois",
+  "all": "Toutes",
+  "noOperationPeriod": "Aucune opération pour cette période.",
+  "addAccount": "Ajouter un compte",
+  "editAccount": "Modifier le compte",
+  "accountName": "Nom du compte (ex: Espèces, Banque)",
+  "initialBalance": "Solde initial",
+  "deleteAccountConfirm": "Supprimer ce compte ?",
+  "irreversibleAction": "Cette action est irréversible.",
+  "addIncome": "Ajouter un revenu",
+  "addExpense": "Ajouter une dépense",
+  "title": "Titre",
+  "required": "Requis",
+  "amount": "Montant",
+  "invalidNumber": "Nombre invalide",
+  "category": "Catégorie",
+  "pleaseChooseCategory": "Veuillez choisir une catégorie",
+  "linkedAccountOptional": "Compte associé (Optionnel)",
+  "noAccount": "Aucun compte",
+  "date": "Date",
+  "saveIncome": "Enregistrer le revenu",
+  "saveExpense": "Enregistrer la dépense",
+  "finishReorder": "Terminer la réorganisation",
+  "reorderOperations": "Réorganiser les opérations",
+  "noOperationForOperator": "Aucune opération pour cet opérateur.",
+  "editOperation": "Modifier l'opération",
+  "operationName": "Nom de l'opération",
+  "ussdCodeExample": "Code USSD (ex: *126#)",
+  "recipientNumber": "Numéro du destinataire",
+  "amountToTransfer": "Montant à transférer ({currency})",
+  "@amountToTransfer": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "merchantCode": "Code marchand",
+  "limitPerOperation": "Plafond : 500 000 {currency} par opération",
+  "@limitPerOperation": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "feeFlat3333": "54 {currency} forfaitaires",
+  "@feeFlat3333": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "feePercent266666": "1,5 % + 4 {currency} (droit fixe)",
+  "@feePercent266666": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "feeFlatMax": "4 004 {currency} forfaitaires",
+  "@feeFlatMax": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "enterAmountToSeeFees": "Saisissez un montant pour voir le détail des frais",
+  "feesBreakdown": "Détail des frais",
+  "amountToSend": "Montant à envoyer",
+  "withdrawalFees": "Frais de retrait ({label})",
+  "@withdrawalFees": {
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
+  "ttaTax": "TTA (0,2 % — loi finances 2022)",
+  "totalFees": "Total frais",
+  "amountDebited": "Montant débité",
+  "operatorLabel": "Opérateur : {name}",
+  "@operatorLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "fieldRequired": "Ce champ est requis",
+  "pleaseEnterValidAmount": "Veuillez saisir un montant valide",
+  "regulatoryLimitExceeded": "Le plafond réglementaire est de 500 000 {currency} par opération",
+  "@regulatoryLimitExceeded": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "includeWithdrawalFees": "Inclure les frais de retrait",
+  "buyForAnother": "Acheter pour un autre",
+  "executeOperation": "Exécuter l'opération",
+  "allLabel": "Tous",
+  "noHistory": "Aucun historique.",
+  "noHistoryForOperator": "Aucun historique pour {operator}.",
+  "@noHistoryForOperator": {
+    "placeholders": {
+      "operator": { "type": "String" }
+    }
+  },
+  "sortBy": "Trier par",
+  "sortByDate": "Trier par date",
+  "sortByOperator": "Trier par opérateur",
+  "clearHistoryConfirm": "Effacer l'historique ?",
+  "clearLabel": "Effacer",
+  "deleteEntryConfirm": "Supprimer l'entrée ?",
+  "deleteEntryWarning": "Voulez-vous vraiment supprimer cette ligne de l'historique ?",
+  "historyDate": "Date : {date}",
+  "@historyDate": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "historyCode": "Code : {code}",
+  "@historyCode": {
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "profile": "Profil",
+  "editProfileInfo": "Modifier les informations",
+  "firstName": "Prénom",
+  "lastName": "Nom",
+  "myOperators": "Mes Opérateurs",
+  "statistics": "Statistiques",
+  "configuredOperations": "Opérations configurées",
+  "scanMerchantCode": "Scanner le code marchand",
+  "placeQrCodeInFrame": "Placez le QR code dans le cadre",
+  "optionalLabel": "Optionnel",
+  "variablesLabel": "Variables (séparées par des virgules, ex: contact, amount)",
+  "recentOperations": "Actions récentes",
+  "incomeCategories": "Catégories Revenus",
+  "addIncomeCategory": "Ajouter une catégorie de revenu",
+  "debtsAndReceivables": "Dettes",
+  "debts": "Dettes",
+  "receivables": "Créances",
+  "totalDebts": "Total Dettes",
+  "totalReceivables": "Total Créances",
+  "debtTag": "Contact / Titulaire",
+  "addDebtTag": "+ Nouveau contact",
+  "debtBalance": "Solde",
+  "recentDebtOperations": "Dernières opérations",
+  "noDebtTags": "Aucun contact défini",
+  "deleteDebtConfirm": "Supprimer ce contact et toutes ses opérations ?",
+  "linkToCashFlow": "Lier au flux de trésorerie ?",
+  "linkToCashFlowDescription": "Si non, cette opération sera un simple mémo.",
+  "addDebtOperation": "Ajouter une dette",
+  "confirm": "Confirmer",
+  "filterActiveDebts": "Actifs",
+  "filterOnlyDebts": "Dettes",
+  "filterOnlyReceivables": "Créances",
+  "filterSettled": "Soldés",
+  "themeColor": "Couleur du thème",
+  "saveAsExpense": "Enregistrer comme dépense",
+  "onboardingWelcome": "Bienvenue sur FIMUS",
+  "onboardingStep1": "Choisissez votre langue",
+  "onboardingStep2": "Sélectionnez votre pays",
+  "onboardingContinue": "Continuer",
+  "onboardingFinish": "Commencer"
+}

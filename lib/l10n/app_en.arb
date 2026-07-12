@@ -1,0 +1,227 @@
+{
+  "@@locale": "en",
+  "appTitle": "FIMUS",
+  "settings": "Settings",
+  "preferences": "Preferences",
+  "operators": "Operators",
+  "ussdCodes": "USSD Codes",
+  "ussdCategories": "USSD Categories",
+  "expenseCategories": "Expense Categories",
+  "appLanguage": "App Language",
+  "currency": "Currency",
+  "french": "Français",
+  "english": "English",
+  "addOperator": "Add an operator",
+  "addUssdCodeFor": "Add a USSD code for:",
+  "noOperatorAvailable": "No operator available. Add one first.",
+  "addExpenseCategory": "Add an expense category",
+  "addUssdCategory": "Add a USSD category",
+  "categoryName": "Category name",
+  "addNew": "Add New",
+  "cancel": "Cancel",
+  "add": "Add",
+  "editOperator": "Edit operator",
+  "country": "Country",
+  "allCountries": "All countries",
+  "sortByCountry": "Sort by country",
+  "operatorName": "Operator name",
+  "yourPhoneNumber": "Your phone number",
+  "save": "Save",
+  "deleteOperator": "Delete operator",
+  "deleteOperatorConfirm": "Are you sure you want to delete the operator {name}? All associated USSD operations will also be deleted.",
+  "@deleteOperatorConfirm": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "delete": "Delete",
+  "myNumber": "My number: {number}",
+  "@myNumber": {
+    "placeholders": {
+      "number": { "type": "String" }
+    }
+  },
+  "noNumberDefined": "No number defined",
+  "availableVariables": "Available variables: {variables}",
+  "@availableVariables": {
+    "placeholders": {
+      "variables": { "type": "String" }
+    }
+  },
+  "ussdTemplate": "USSD Code Template",
+  "codeUpdatedSuccess": "Code updated successfully",
+  "resetToDefault": "Reset",
+  "codeResetSuccess": "Code reset to default",
+  "cannotDeleteOther": "The 'Autre' category cannot be deleted",
+  "expenses": "Expenses",
+  "dashboard": "Dashboard",
+  "history": "History",
+  "accounts": "Accounts",
+  "newOperation": "New operation",
+  "ussdMenu": "USSD",
+  "expense": "Expense",
+  "income": "Income",
+  "monthOverview": "Month overview",
+  "incomes": "Incomes",
+  "yourAccounts": "Your Accounts",
+  "totalBalance": "Total Balance",
+  "noAccountSaved": "No account saved.",
+  "today": "Today",
+  "thisWeek": "This week",
+  "thisMonth": "This month",
+  "all": "All",
+  "noOperationPeriod": "No operation for this period.",
+  "addAccount": "Add an account",
+  "editAccount": "Edit account",
+  "accountName": "Account name (e.g., Cash, Bank)",
+  "initialBalance": "Initial balance",
+  "deleteAccountConfirm": "Delete this account?",
+  "irreversibleAction": "This action is irreversible.",
+  "addIncome": "Add income",
+  "addExpense": "Add expense",
+  "title": "Title",
+  "required": "Required",
+  "amount": "Amount",
+  "invalidNumber": "Invalid number",
+  "category": "Category",
+  "pleaseChooseCategory": "Please choose a category",
+  "linkedAccountOptional": "Linked account (Optional)",
+  "noAccount": "No account",
+  "date": "Date",
+  "saveIncome": "Save income",
+  "saveExpense": "Save expense",
+  "finishReorder": "Finish reordering",
+  "reorderOperations": "Reorder operations",
+  "noOperationForOperator": "No operation for this operator.",
+  "editOperation": "Edit operation",
+  "operationName": "Operation name",
+  "ussdCodeExample": "USSD Code (e.g. *126#)",
+  "recipientNumber": "Recipient number",
+  "amountToTransfer": "Amount to transfer ({currency})",
+  "@amountToTransfer": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "merchantCode": "Merchant code",
+  "limitPerOperation": "Limit: 500,000 {currency} per operation",
+  "@limitPerOperation": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "feeFlat3333": "54 {currency} flat",
+  "@feeFlat3333": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "feePercent266666": "1.5% + 4 {currency} (flat rate)",
+  "@feePercent266666": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "feeFlatMax": "4,004 {currency} flat",
+  "@feeFlatMax": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "enterAmountToSeeFees": "Enter an amount to see the fees breakdown",
+  "feesBreakdown": "Fees breakdown",
+  "amountToSend": "Amount to send",
+  "withdrawalFees": "Withdrawal fees ({label})",
+  "@withdrawalFees": {
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
+  "ttaTax": "TTA (0.2% — finance law 2022)",
+  "totalFees": "Total fees",
+  "amountDebited": "Amount debited",
+  "operatorLabel": "Operator: {name}",
+  "@operatorLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "fieldRequired": "This field is required",
+  "pleaseEnterValidAmount": "Please enter a valid amount",
+  "regulatoryLimitExceeded": "The regulatory limit is 500,000 {currency} per operation",
+  "@regulatoryLimitExceeded": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "includeWithdrawalFees": "Include withdrawal fees",
+  "buyForAnother": "Buy for someone else",
+  "executeOperation": "Execute operation",
+  "allLabel": "All",
+  "noHistory": "No history.",
+  "noHistoryForOperator": "No history for {operator}.",
+  "@noHistoryForOperator": {
+    "placeholders": {
+      "operator": { "type": "String" }
+    }
+  },
+  "sortBy": "Sort by",
+  "sortByDate": "Sort by date",
+  "sortByOperator": "Sort by operator",
+  "clearHistoryConfirm": "Clear history?",
+  "clearLabel": "Clear",
+  "deleteEntryConfirm": "Delete entry?",
+  "deleteEntryWarning": "Are you sure you want to delete this history line?",
+  "historyDate": "Date: {date}",
+  "@historyDate": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "historyCode": "Code: {code}",
+  "@historyCode": {
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "profile": "Profile",
+  "editProfileInfo": "Edit information",
+  "firstName": "First name",
+  "lastName": "Last name",
+  "myOperators": "My Operators",
+  "statistics": "Statistics",
+  "configuredOperations": "Configured operations",
+  "scanMerchantCode": "Scan merchant code",
+  "placeQrCodeInFrame": "Place QR code in frame",
+  "optionalLabel": "Optional",
+  "variablesLabel": "Variables (comma-separated, e.g. contact, amount)",
+  "recentOperations": "Recent actions",
+  "incomeCategories": "Income Categories",
+  "addIncomeCategory": "Add an income category",
+  "debtsAndReceivables": "Debts",
+  "debts": "Debts",
+  "receivables": "Receivables",
+  "totalDebts": "Total Debts",
+  "totalReceivables": "Total Receivables",
+  "debtTag": "Contact / Holder",
+  "addDebtTag": "+ New contact",
+  "debtBalance": "Balance",
+  "recentDebtOperations": "Recent operations",
+  "noDebtTags": "No contact defined",
+  "deleteDebtConfirm": "Delete this contact and all its operations?",
+  "linkToCashFlow": "Link to cash flow?",
+  "linkToCashFlowDescription": "If no, this operation will be just a memo.",
+  "addDebtOperation": "Add a debt",
+  "confirm": "Confirm",
+  "filterActiveDebts": "Active",
+  "filterOnlyDebts": "Debts",
+  "filterOnlyReceivables": "Receivables",
+  "filterSettled": "Settled",
+  "themeColor": "Theme Color",
+  "saveAsExpense": "Save as an expense",
+  "onboardingWelcome": "Welcome to FIMUS",
+  "onboardingStep1": "Choose your language",
+  "onboardingStep2": "Select your country",
+  "onboardingContinue": "Continue",
+  "onboardingFinish": "Get Started"
+}

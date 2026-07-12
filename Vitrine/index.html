@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIMUS - Gérez. Suivez. Optimisez.</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        fimus: {
+                            light: '#724bb8',
+                            DEFAULT: '#4B2A8A', // Couleur déduite du logo
+                            dark: '#311a5c',
+                        }
+                    },
+                    height: {
+                        '12': '7rem',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+    <!-- Navigation -->
+    <nav class="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex-shrink-0 flex items-center gap-3">
+                    <img src="ChatGPT Image Jul 1, 2026, 07_13_55 AM.png" alt="Logo FIMUS" class="h-12 w-auto object-contain">
+                </div>
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="#features" class="text-slate-600 hover:text-fimus font-medium transition">Fonctionnalités</a>
+                    <a href="#simulateur" class="text-slate-600 hover:text-fimus font-medium transition">Simulateur</a>
+                    <a href="#" class="bg-fimus hover:bg-fimus-dark text-white px-6 py-2.5 rounded-full font-semibold transition shadow-lg shadow-fimus/30">
+                        Télécharger
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+            <div class="lg:grid lg:grid-cols-12 lg:gap-16 items-center">
+                <div class="lg:col-span-6 text-center lg:text-left mb-16 lg:mb-0">
+                    <span class="text-fimus font-bold tracking-wider uppercase text-sm mb-4 block">Gérez. Suivez. Optimisez.</span>
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-tight mb-6">
+                        Reprenez le contrôle de vos finances.
+                    </h1>
+                    <p class="text-lg text-slate-600 mb-8 leading-relaxed">
+                        De l'exécution ultra-rapide de vos codes USSD à la simulation de vos futurs crédits. Centralisez vos dépenses et abattez la complexité de vos dettes avec FIMUS.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                        <button class="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5 12a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0zM3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z"/></svg>
+                            App Store
+                        </button>
+                        <button class="bg-fimus hover:bg-fimus-dark text-white px-8 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition shadow-lg shadow-fimus/30">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4zm2 1v14h14V5H5z"/></svg>
+                            Google Play
+                        </button>
+                    </div>
+                </div>
+                <div class="lg:col-span-6 relative">
+                    <div class="absolute inset-0 bg-fimus/10 rounded-full blur-3xl transform scale-150"></div>
+                    <!-- Placeholder pour [Image 1 - Hero Mockup] -->
+                    <img src="hero.png" alt="Aperçu de l'application" class="relative z-10 w-full rounded-2xl shadow-2xl transform rotate-[-2deg] hover:rotate-0 transition duration-500">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">Une seule application pour toutes vos opérations</h2>
+                <p class="text-slate-600">Conçue pour éliminer la friction de vos opérations financières quotidiennes tout en sécurisant votre avenir.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-12">
+                <!-- Feature 1 -->
+                <div class="bg-slate-50 rounded-2xl p-8 border border-slate-100 hover:shadow-xl transition duration-300 group">
+                    <div class="w-14 h-14 bg-fimus/10 text-fimus rounded-xl flex items-center justify-center mb-6 group-hover:bg-fimus group-hover:text-white transition">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 text-slate-900">Gestion des dépenses</h3>
+                    <p class="text-slate-600">Catégorisez et suivez chaque flux financier. Identifiez vos pôles de dépenses majeurs grâce à des graphiques clairs et précis.</p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="bg-slate-50 rounded-2xl p-8 border border-slate-100 hover:shadow-xl transition duration-300 group">
+                    <div class="w-14 h-14 bg-fimus/10 text-fimus rounded-xl flex items-center justify-center mb-6 group-hover:bg-fimus group-hover:text-white transition">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 text-slate-900">Suivi des Dettes</h3>
+                    <p class="text-slate-600">Abattez la complexité de vos dettes. Gardez un registre exact de vos créances et emprunts pour ne plus jamais oublier une échéance.</p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="bg-slate-50 rounded-2xl p-8 border border-slate-100 hover:shadow-xl transition duration-300 group">
+                    <div class="w-14 h-14 bg-fimus/10 text-fimus rounded-xl flex items-center justify-center mb-6 group-hover:bg-fimus group-hover:text-white transition">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 text-slate-900">Opérations USSD rapides</h3>
+                    <p class="text-slate-600">Fini la mémorisation des syntaxes complexes. Enregistrez et personnalisez vos codes USSD fréquents pour des exécutions en un tap.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Split Section (Simulateur) -->
+    <section id="simulateur" class="py-20 bg-slate-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="lg:grid lg:grid-cols-2 lg:gap-16 items-center">
+                <div class="mb-12 lg:mb-0 order-2 lg:order-1">
+                    <!-- Placeholder pour [Image 2 - Expenses UI ou Simulateur] -->
+                    <img src="simulateur-crédit.png" alt="Interface Simulateur de Crédit" class="rounded-2xl shadow-xl w-full">
+                </div>
+                <div class="order-1 lg:order-2">
+                    <h2 class="text-3xl lg:text-4xl font-bold text-slate-900 mb-6">Simulez avant de vous engager.</h2>
+                    <p class="text-lg text-slate-600 mb-8">
+                        Ne naviguez plus à l'aveugle. Le simulateur de crédit intégré à FIMUS vous permet d'évaluer vos capacités d'emprunt avec une précision mathématique.
+                    </p>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-center gap-3 text-slate-700">
+                            <svg class="w-6 h-6 text-fimus flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Calcul automatique des taux d'intérêt et mensualités.
+                        </li>
+                        <li class="flex items-center gap-3 text-slate-700">
+                            <svg class="w-6 h-6 text-fimus flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Projection d'amortissement claire.
+                        </li>
+                        <li class="flex items-center gap-3 text-slate-700">
+                            <svg class="w-6 h-6 text-fimus flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Ajustement des variables en temps réel.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
+            <div class="mb-6 md:mb-0">
+                <img src="ChatGPT Image Jul 1, 2026, 07_13_55 AM.png" alt="Logo FIMUS" class="h-10 w-auto opacity-75 grayscale hover:grayscale-0 transition mb-4">
+                <p class="text-sm">Gérez. Suivez. Optimisez. L'outil définitif pour vos finances personnelles.</p>
+            </div>
+            <div class="flex space-x-6">
+                <a href="#" class="hover:text-white transition">Mentions Légales</a>
+                <a href="#" class="hover:text-white transition">Politique de Confidentialité</a>
+                <a href="#" class="hover:text-white transition">Support</a>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 text-sm text-slate-500">
+            &copy; 2026 FIMUS. Tous droits réservés.
+        </div>
+    </footer>
+
+</body>
+</html>
