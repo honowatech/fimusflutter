@@ -3,3 +3,7 @@ Backend/
 build/
 .idea/
 Backend/
+Backend/
+build/
+.idea/
+.dart_tool/
