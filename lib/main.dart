@@ -1,7 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
 import 'providers/ussd_provider.dart';
 import 'providers/history_provider.dart';
@@ -13,28 +14,57 @@ import 'providers/theme_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/security_provider.dart';
 import 'providers/contact_provider.dart';
+import 'providers/notification_provider.dart';
+import 'providers/notification_preferences_provider.dart';
+import 'services/notification_permission_service.dart';
 import 'screens/lock_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/main_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/complete_profile_screen.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'services/notification_service.dart';
-import 'package:flutter_jailbreak_detection/flutter_jailbreak_detection.dart';
+import 'package:safe_device/safe_device.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/onboarding_screen.dart';
+import 'screens/welcome_screen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+Future<void> _initFirebaseSafe() async {
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase initialization failed: $e");
+  }
+}
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   bool jailbroken = false;
   try {
-    jailbroken = await FlutterJailbreakDetection.jailbroken;
-  } on PlatformException {
-    jailbroken = true;
+    final results = await Future.wait<dynamic>([
+      SafeDevice.isJailBroken
+          .timeout(const Duration(milliseconds: 500), onTimeout: () => false)
+          .catchError((e) {
+        debugPrint("Jailbreak detection failed: $e");
+        return false;
+      }),
+      _initFirebaseSafe(),
+    ]);
+    jailbroken = results[0] as bool;
+  } catch (e) {
+    debugPrint("Initialization error: $e");
   }
 
   if (jailbroken) {
+    FlutterNativeSplash.remove();
     runApp(
       MaterialApp(
         home: Scaffold(
@@ -54,8 +84,6 @@ void main() async {
     return;
   }
 
-  await Firebase.initializeApp();
-  await NotificationService().init();
   runApp(
     MultiProvider(
       providers: [
@@ -69,10 +97,25 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ContactProvider()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationPreferencesProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationPermissionService()),
       ],
       child: const FimusApp(),
     ),
   );
+
+  // Defer non-critical services initialization post-launch
+  Future.microtask(() async {
+    try {
+      await NotificationService().init();
+    } catch (e) {
+      debugPrint("NotificationService deferred init failed: $e");
+    }
+    try {
+      await GoogleSignIn.instance.initialize();
+    } catch (_) {}
+  });
 }
 
 class FimusApp extends StatelessWidget {
@@ -124,6 +167,7 @@ class FimusApp extends StatelessWidget {
               const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
       ),
+      navigatorKey: navigatorKey,
       home: const _AuthGate(),
     );
   }
@@ -152,13 +196,26 @@ class _AuthGateState extends State<_AuthGate> with WidgetsBindingObserver {
   }
 
   Future<void> _checkOnboardingAndAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
-    });
-    
-    if (mounted) {
-      context.read<AuthProvider>().checkAuthStatus(context);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+        });
+      }
+      
+      if (mounted) {
+        await context.read<AuthProvider>().checkAuthStatus(context);
+      }
+    } catch (e) {
+      debugPrint("Error in _checkOnboardingAndAuth: $e");
+      if (mounted) {
+        setState(() {
+          _hasSeenOnboarding = false;
+        });
+      }
+    } finally {
+      FlutterNativeSplash.remove();
     }
   }
 
@@ -189,6 +246,11 @@ class _AuthGateState extends State<_AuthGate> with WidgetsBindingObserver {
         securityProvider.lockApp();
       }
       _backgroundTimestamp = null;
+      
+      // Refresh notifications when returning to foreground
+      if (mounted) {
+        context.read<NotificationProvider>().fetch();
+      }
     }
   }
 
@@ -203,7 +265,7 @@ class _AuthGateState extends State<_AuthGate> with WidgetsBindingObserver {
     }
 
     if (!_hasSeenOnboarding!) {
-      return const OnboardingScreen();
+      return const WelcomeScreen();
     }
 
     final authStatus = context.watch<AuthProvider>().status;
@@ -217,6 +279,9 @@ class _AuthGateState extends State<_AuthGate> with WidgetsBindingObserver {
           ),
         );
       case AuthStatus.authenticated:
+        if (!context.watch<AuthProvider>().isProfileComplete) {
+          return const CompleteProfileScreen();
+        }
         if (securityProvider.isAppLockEnabled && !securityProvider.isAppUnlocked) {
           return const LockScreen();
         }

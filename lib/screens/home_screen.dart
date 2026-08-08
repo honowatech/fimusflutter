@@ -5,79 +5,18 @@ import 'main_screen.dart';
 import 'expense_screen.dart';
 import 'add_expense_screen.dart';
 import 'add_debt_operation_screen.dart';
-import '../providers/account_provider.dart';
-import '../providers/profile_provider.dart';
-import '../models/account.dart';
-import '../utils/formatters.dart';
+import 'debt_screen.dart';
 import 'package:provider/provider.dart';
 import '../models/announcement.dart';
 import '../services/announcement_service.dart';
 import '../utils/api_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:uuid/uuid.dart';
+import '../widgets/add_account_bottom_sheet.dart';
+import '../services/notification_permission_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  void _showAddAccountDialog(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    String newAccountName = '';
-    double initialBalance = 0.0;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.addAccount),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              autofocus: true,
-              decoration: InputDecoration(labelText: l10n.accountName),
-              onChanged: (val) {
-                newAccountName = val;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              decoration: InputDecoration(
-                labelText: l10n.initialBalance,
-                prefixText: '${Provider.of<ProfileProvider>(context, listen: false).profile.currency} ',
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [AmountInputFormatter()],
-              onChanged: (val) {
-                initialBalance = double.tryParse(val.replaceAll(RegExp(r'\s+'), '').replaceAll(',', '.')) ?? 0.0;
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () {
-              if (newAccountName.trim().isNotEmpty) {
-                Provider.of<AccountProvider>(context, listen: false)
-                    .addAccount(Account(
-                  id: const Uuid().v4(),
-                  name: newAccountName.trim(),
-                  balance: initialBalance,
-                ));
-                Navigator.pop(ctx);
-
-                // Redirect to Accounts tab
-                MainScreen.of(context)?.setSelectedIndex(2); // 2 is ExpenseScreen
-                ExpenseScreen.globalKey.currentState?.switchToTab(2); // 2 is Accounts tab
-              }
-            },
-            child: Text(l10n.save),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,19 +24,44 @@ class HomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.appTitle),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: Colors.white,
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Actions rapides
+            Consumer<NotificationPermissionService>(
+              builder: (context, permService, child) {
+                if (permService.isGranted) return const SizedBox.shrink();
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "Activez les notifications pour ne rien manquer.",
+                          style: TextStyle(color: Colors.orange.shade900),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => permService.requestPermission(),
+                        child: const Text('Activer'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            // Accès Direct
             Text(
-              'Actions rapides',
+              l10n.recentOperations,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -108,8 +72,77 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   child: _buildActionCard(
                     context,
-                    title: '+ Dépense',
-                    description: 'Enregistrez une dépense',
+                    title: l10n.addIncomeAction,
+                    icon: Icons.attach_money_rounded,
+                    iconColor: const Color(0xFF00C853),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddExpenseScreen(isIncome: true),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildActionCard(
+                    context,
+                    title: l10n.addBorrowAction,
+                    icon: Icons.download_rounded,
+                    iconColor: const Color(0xFFFF9100),
+                    onTap: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddDebtOperationScreen(initialIsIncome: true),
+                        ),
+                      );
+                      if (result == true) {
+                        MainScreen.of(context)?.setSelectedIndex(2);
+                        DebtScreen.globalKey.currentState?.switchToHistoryTab();
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildActionCard(
+                    context,
+                    title: l10n.addAccountAction,
+                    icon: Icons.account_balance_wallet_rounded,
+                    iconColor: const Color(0xFF00B0FF),
+                    onTap: () {
+                      AddAccountBottomSheet.show(context, onSuccess: () {
+                        // Redirect to Accounts tab
+                        MainScreen.of(context)?.setSelectedIndex(1); // 1 is ExpenseScreen
+                        ExpenseScreen.navigateToTab(2); // 2 is Accounts tab
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionCard(
+                    context,
+                    title: l10n.ussdMenu,
+                    icon: Icons.dialpad_rounded,
+                    iconColor: const Color(0xFF7C4DFF),
+                    onTap: () {
+                      MainScreen.of(context)?.setSelectedIndex(3);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildActionCard(
+                    context,
+                    title: l10n.addExpenseAction,
                     icon: Icons.money_off_rounded,
                     iconColor: const Color(0xFFFF5274),
                     onTap: () {
@@ -126,83 +159,20 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   child: _buildActionCard(
                     context,
-                    title: 'USSD',
-                    description: 'Opérations USSD',
-                    icon: Icons.dialpad_rounded,
-                    iconColor: const Color(0xFF7C4DFF),
-                    onTap: () {
-                      MainScreen.of(context)?.setSelectedIndex(1);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: '+ Revenu',
-                    description: 'Enregistrez un revenu',
-                    icon: Icons.attach_money_rounded,
-                    iconColor: const Color(0xFF00C853),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddExpenseScreen(isIncome: true),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: '+ Compte',
-                    description: 'Ajoutez un compte',
-                    icon: Icons.account_balance_wallet_rounded,
-                    iconColor: const Color(0xFF00B0FF),
-                    onTap: () {
-                      _showAddAccountDialog(context);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: '+ Emprunt',
-                    description: 'Enregistrez un emprunt',
-                    icon: Icons.download_rounded,
-                    iconColor: const Color(0xFFFF9100),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddDebtOperationScreen(initialIsIncome: true),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: '+ Prêt',
-                    description: 'Enregistrez un prêt',
+                    title: l10n.addLendAction,
                     icon: Icons.upload_rounded,
                     iconColor: const Color(0xFF651FFF),
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const AddDebtOperationScreen(initialIsIncome: false),
                         ),
                       );
+                      if (result == true) {
+                        MainScreen.of(context)?.setSelectedIndex(2);
+                        DebtScreen.globalKey.currentState?.switchToHistoryTab();
+                      }
                     },
                   ),
                 ),
@@ -229,7 +199,6 @@ class HomeScreen extends StatelessWidget {
   Widget _buildActionCard(
     BuildContext context, {
     required String title,
-    required String description,
     required IconData icon,
     required Color iconColor,
     required VoidCallback onTap,
@@ -290,21 +259,8 @@ class HomeScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 13.44,
                         color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Description
-                    Text(
-                      description,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontSize: 9,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-                        height: 1.2,
                       ),
                     ),
                     const SizedBox(height: 10),

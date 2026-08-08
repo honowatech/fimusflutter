@@ -28,7 +28,7 @@ class ContactProvider with ChangeNotifier {
     }
   }
 
-  Future<void> addContact(String code, {String? alias}) async {
+  Future<Contact> addContact(String code, {String? alias}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -36,6 +36,7 @@ class ContactProvider with ChangeNotifier {
     try {
       final newContact = await _contactService.addContact(code, alias: alias);
       _contacts.add(newContact);
+      return newContact;
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       rethrow;

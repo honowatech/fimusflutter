@@ -4,6 +4,7 @@ import 'package:monitrack/l10n/app_localizations.dart';
 import '../models/ussd_history.dart';
 import '../providers/history_provider.dart';
 import '../services/ussd_service.dart';
+import 'package:uuid/uuid.dart';
 
 enum HistorySortType {
   date,
@@ -168,6 +169,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: const Icon(Icons.delete, color: Colors.white),
                         ),
+                        confirmDismiss: (direction) async {
+                          return await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(l10n.deleteEntryConfirm),
+                              content: Text(l10n.deleteEntryWarning),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text(l10n.cancel),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                  child: Text(l10n.delete),
+                                ),
+                              ],
+                            ),
+                          ) ?? false;
+                        },
                         onDismissed: (_) {
                           historyProvider.removeHistoryEntry(entry.id);
                         },
@@ -199,6 +220,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           onTap: () async {
                             try {
                               await UssdService.executeUssd(entry.ussdCode, {});
+                              historyProvider.addHistoryEntry(UssdHistory(
+                                id: const Uuid().v4(),
+                                operationName: entry.operationName,
+                                providerName: entry.providerName,
+                                ussdCode: entry.ussdCode,
+                                date: DateTime.now(),
+                              ));
                             } catch (e) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(

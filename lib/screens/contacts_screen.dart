@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:monitrack/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/contact_provider.dart';
-import 'qr_scanner_screen.dart';
+import '../providers/expense_provider.dart';
+import '../widgets/add_contact_bottom_sheet.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -19,142 +21,19 @@ class _ContactsScreenState extends State<ContactsScreen> {
     });
   }
 
-  void _showAddContactDialog() {
-    final codeController = TextEditingController();
-    final aliasController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Ajouter un contact'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: codeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Code de l\'utilisateur (4 car.)',
-                    hintText: 'Ex: X8Y3',
-                  ),
-                  maxLength: 4,
-                  textCapitalization: TextCapitalization.characters,
-                  validator: (value) {
-                    if (value == null || value.trim().length != 4) {
-                      return 'Veuillez saisir un code valide de 4 caractères';
-                    }
-                    return null;
-                  },
-                ),
-                TextFormField(
-                  controller: aliasController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom / Alias (Optionnel)',
-                    hintText: 'Surnom personnalisé',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  final code = codeController.text.trim().toUpperCase();
-                  final alias = aliasController.text.trim();
-                  
-                  Navigator.pop(ctx);
-                  
-                  try {
-                    await context.read<ContactProvider>().addContact(
-                      code,
-                      alias: alias.isNotEmpty ? alias : null,
-                    );
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Contact ajouté avec succès !')),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Erreur : ${e.toString().replaceFirst('Exception: ', '')}'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                }
-              },
-              child: const Text('Ajouter'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _scanQrCode() async {
-    final scannedCode = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
-    );
-
-    if (scannedCode != null && scannedCode.isNotEmpty && mounted) {
-      // Scanned code might have spaces or lowercases, clean it up
-      final code = scannedCode.trim().toUpperCase();
-      if (code.length == 4) {
-        try {
-          await context.read<ContactProvider>().addContact(code);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Contact $code ajouté avec succès !')),
-            );
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Erreur : ${e.toString().replaceFirst('Exception: ', '')}'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Code QR invalide. Le code doit faire 4 caractères.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
+  void _showAddContactBottomSheet() {
+    AddContactBottomSheet.show(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final contactProvider = Provider.of<ContactProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mes Contacts'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded),
-            onPressed: _scanQrCode,
-            tooltip: 'Scanner un QR Code',
-          ),
-        ],
+        title: Text(l10n.myContacts),
       ),
       body: contactProvider.isLoading && contactProvider.contacts.isEmpty
           ? const Center(child: CircularProgressIndicator())
@@ -167,13 +46,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       children: [
                         Icon(Icons.people_outline_rounded, size: 64, color: Colors.grey.shade400),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Aucun contact',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        Text(
+                          l10n.noContactSaved,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Ajoutez des contacts à l\'aide de leur code unique de 4 caractères pour pouvoir partager des comptes ou leur attribuer des dettes.',
+                          l10n.addContactsExplanation,
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
@@ -204,23 +83,42 @@ class _ContactsScreenState extends State<ContactsScreen> {
                           contact.displayName,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        subtitle: Text('${contact.email} • Code : ${contact.userCode}'),
+                        subtitle: Text('${contact.email.isNotEmpty ? '${contact.email} • ' : ''}${l10n.pseudoTag(contact.userCode)}'),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
                           onPressed: () async {
+                            final expenseProvider = context.read<ExpenseProvider>();
+                            final contactExpenses = expenseProvider.expenses.where((e) =>
+                                e.debtorUserId == contact.id.toString() || e.debtTag == contact.name);
+                            final balance = contactExpenses.where((e) => !e.isPlanned)
+                                .fold(0.0, (sum, e) => sum + (e.type == 'income' ? e.amount : -e.amount));
+                            final hasPlannedDebts = contactExpenses.any((e) => e.isPlanned);
+                            
+                            final hasActiveDebts = balance != 0 || hasPlannedDebts;
+
+                            if (hasActiveDebts) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.contactHasActiveDebts(contact.displayName)),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (_) => AlertDialog(
-                                title: const Text('Supprimer le contact'),
-                                content: Text('Êtes-vous sûr de vouloir supprimer ${contact.displayName} de vos contacts ?'),
+                                title: Text(l10n.deleteContact),
+                                content: Text(l10n.deleteContactConfirm(contact.displayName)),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Annuler'),
+                                    child: Text(l10n.cancel),
                                   ),
                                   TextButton(
                                     onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                                    child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
                                   ),
                                 ],
                               ),
@@ -231,13 +129,14 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                 await context.read<ContactProvider>().deleteContact(contact.id);
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Contact supprimé')),
+                                    SnackBar(content: Text(l10n.contactDeleted)),
                                   );
                                 }
                               } catch (e) {
                                 if (mounted) {
+                                  final errorMsg = e.toString().replaceFirst('Exception: ', '');
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+                                    SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
                                   );
                                 }
                               }
@@ -249,10 +148,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   },
                 ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddContactDialog,
-        tooltip: 'Ajouter un contact',
+        onPressed: _showAddContactBottomSheet,
+        tooltip: l10n.addContactTitle,
         child: const Icon(Icons.person_add_alt_1_rounded),
       ),
     );
   }
 }
+
+
+

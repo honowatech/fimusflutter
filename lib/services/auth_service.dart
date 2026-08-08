@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/api_config.dart';
 
@@ -21,6 +22,18 @@ class AuthService {
         }
         return handler.next(options);
       },
+      onError: (DioException e, handler) async {
+        if (e.response?.statusCode == 401) {
+          final path = e.requestOptions.path;
+          if (!path.contains('/login') && !path.contains('/auth/google') && !path.contains('/register')) {
+            await deleteToken();
+            await deleteCachedUser();
+            // Note: Une redirection globale nécessite une clé de navigation, 
+            // mais purger le token garantit que la prochaine vérification renverra au login.
+          }
+        }
+        return handler.next(e);
+      }
     ));
   }
 
@@ -88,6 +101,7 @@ class AuthService {
     required String password,
     required int countryId,
     required String type,
+    required String pseudo,
   }) async {
     try {
       final response = await _dio.post(
@@ -99,6 +113,7 @@ class AuthService {
           'password_confirmation': password,
           'country_id': countryId,
           'type': type,
+          'pseudo': pseudo,
         },
       );
       
@@ -113,9 +128,76 @@ class AuthService {
     }
   }
 
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _dio.post(
+        ApiConfig.forgotPassword,
+        data: {'email': email},
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> loginWithGoogle({
+    required String idToken,
+    String? name,
+    String? type,
+    int? countryId,
+    String? pseudo,
+  }) async {
+    try {
+      final response = await _dio.post(
+        ApiConfig.googleAuth,
+        data: {
+          'id_token': idToken,
+          if (name != null) 'name': name,
+          if (type != null) 'type': type,
+          if (countryId != null) 'country_id': countryId,
+          if (pseudo != null) 'pseudo': pseudo,
+        },
+      );
+
+      final token = response.data['access_token'];
+      if (token != null) {
+        await saveToken(token);
+      }
+
+      return response.data;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 422) {
+        final code = e.response?.data['code'];
+        final message = e.response?.data['message'] ?? '';
+        if (code == 'REGISTRATION_INCOMPLETE' ||
+            message.contains('informations supplémentaires') ||
+            message.contains('type') ||
+            message.contains('country_id')) {
+          throw GoogleAuthNeedsRegistrationException(message);
+        }
+        if (code == 'PSEUDO_TAKEN') {
+          throw PseudoTakenException(message);
+        }
+      }
+      if (e.response?.statusCode == 401) {
+        final code = e.response?.data['code'];
+        if (code == 'INVALID_GOOGLE_TOKEN') {
+          throw InvalidGoogleTokenException(e.response?.data['message'] ?? 'Token invalide');
+        }
+      }
+      throw _handleError(e);
+    }
+  }
+
   Future<void> logout() async {
     try {
       if (await hasToken()) {
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null) {
+            await _dio.post('${ApiConfig.baseUrl}/users/revoke-fcm-token', data: {'fcm_token': fcmToken});
+          }
+          await FirebaseMessaging.instance.deleteToken();
+        } catch (_) {}
         await _dio.post(ApiConfig.logout);
       }
     } catch (e) {
@@ -135,6 +217,34 @@ class AuthService {
     }
   }
 
+  Future<void> updatePseudo(String newPseudo) async {
+    try {
+      await _dio.post(ApiConfig.updatePseudo, data: {'pseudo': newPseudo});
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> completeProfile({
+    required String pseudo,
+    required int countryId,
+    required String type,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConfig.baseUrl}/user/complete-profile',
+        data: {
+          'pseudo': pseudo,
+          'country_id': countryId,
+          'type': type,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<List<dynamic>> getCountries() async {
     try {
       final response = await _dio.get(ApiConfig.countries);
@@ -144,8 +254,51 @@ class AuthService {
     }
   }
 
+  Future<void> updateCountry(int countryId) async {
+    try {
+      await _dio.post(
+        ApiConfig.updateCountry,
+        data: {'country_id': countryId},
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    try {
+      await _dio.delete(ApiConfig.user);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    } finally {
+      await deleteToken();
+      await deleteCachedUser();
+    }
+  }
+
+  Future<Map<String, double>> fetchExchangeRates() async {
+    try {
+      final response = await _dio.get(ApiConfig.exchangeRates);
+      final Map<String, dynamic> data = response.data;
+      return data.map((key, value) => MapEntry(key, (value as num).toDouble()));
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   String _handleError(DioException e) {
     if (e.response != null) {
+      if (e.response?.statusCode == 429) {
+        // En frontend pur (sans context l10n facile), 
+        // les messages sont déjà envoyés correctement au niveau UI via Dio interceptor
+        // mais pour garder la localisation, l'idéal serait de retourner le code 
+        // ou d'avoir le context, mais ici on va juste parser le retry-after.
+        final retryAfter = e.response?.headers.value('retry-after');
+        if (retryAfter != null) {
+          return 'TOO_MANY_REQUESTS_RETRY:$retryAfter';
+        }
+        return 'TOO_MANY_REQUESTS';
+      }
       if (e.response?.statusCode == 422) {
         final errors = e.response?.data['errors'] as Map<String, dynamic>?;
         if (errors != null && errors.isNotEmpty) {
@@ -157,4 +310,25 @@ class AuthService {
     }
     return 'Network Error. Please check your connection.';
   }
+}
+
+class GoogleAuthNeedsRegistrationException implements Exception {
+  final String message;
+  GoogleAuthNeedsRegistrationException(this.message);
+  @override
+  String toString() => message;
+}
+
+class PseudoTakenException implements Exception {
+  final String message;
+  PseudoTakenException(this.message);
+  @override
+  String toString() => message;
+}
+
+class InvalidGoogleTokenException implements Exception {
+  final String message;
+  InvalidGoogleTokenException(this.message);
+  @override
+  String toString() => message;
 }

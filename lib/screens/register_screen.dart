@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:monitrack/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
-import '../services/auth_service.dart';
 import 'main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -14,13 +14,13 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _pseudoController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authService = AuthService();
 
   bool _isLoading = false;
-  bool _obscurePassword = true;
+  bool _obscurePassword = false;
 
   int? _selectedCountryId;
   String _selectedType = 'particulier';
@@ -35,14 +35,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _selectedCountryId = prefs.getInt('selected_country_id');
+      final savedType = prefs.getString('selected_profile_type');
+      if (savedType != null) {
+        _selectedType = savedType;
+      }
     });
   }
 
   Future<void> _register() async {
+    final l10n = AppLocalizations.of(context)!;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCountryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner votre pays')),
+        SnackBar(content: Text(l10n.pleaseSelectCountry)),
       );
       return;
     }
@@ -58,8 +63,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text,
         countryId: _selectedCountryId!,
         type: _selectedType,
+        pseudo: _pseudoController.text.trim(),
       );
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Compte créé ! Votre mot de passe vous a été envoyé par email afin de ne pas l\'oublier.',
+            ),
+            duration: Duration(seconds: 5),
+            backgroundColor: Colors.green,
+          ),
+        );
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const MainScreen()),
@@ -79,11 +94,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Créer un compte'),
+        title: Text(l10n.createAccount),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -107,10 +123,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    Icons.account_balance_wallet_rounded,
-                    size: 60,
-                    color: theme.colorScheme.primary,
+                  Image.asset(
+                    'assets/images/logo.png',
+                    height: 60,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -130,16 +145,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 32),
 
+                  // Pseudo
+                  TextFormField(
+                    controller: _pseudoController,
+                    decoration: InputDecoration(
+                      labelText: l10n.username,
+                      prefixIcon: Icon(Icons.alternate_email),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return l10n.pseudoRequired;
+                      final val = v.trim();
+                      if (val.length < 3 || val.length > 15) return l10n.pseudoLength;
+                      if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(val)) return l10n.pseudoFormat;
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.uniqueIdentifierDesc,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Name
                   TextFormField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Nom complet',
+                    decoration: InputDecoration(
+                      labelText: l10n.fullName,
                       prefixIcon: Icon(Icons.person_outline),
                     ),
                     validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                        (v == null || v.trim().isEmpty) ? l10n.required : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -147,13 +186,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
+                    decoration: InputDecoration(
+                      labelText: l10n.email,
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Requis';
-                      if (!v.contains('@')) return 'Email invalide';
+                      if (v == null || v.trim().isEmpty) return l10n.required;
+                      if (!v.contains('@')) return l10n.pleaseEnterValidEmail;
                       return null;
                     },
                   ),
@@ -164,7 +203,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Mot de passe',
+                      labelText: l10n.password,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword
@@ -175,8 +214,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Requis';
-                      if (v.length < 8) return 'Minimum 8 caractères';
+                      if (v == null || v.isEmpty) return l10n.required;
+                      if (v.length < 8) return l10n.min8Chars;
                       return null;
                     },
                   ),
@@ -186,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                   // User type
                   Text(
-                    'Type de compte',
+                    l10n.accountType,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -197,7 +236,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Expanded(
                         child: _TypeCard(
                           icon: Icons.person_rounded,
-                          label: 'Particulier',
+                          label: l10n.individualProfile,
                           isSelected: _selectedType == 'particulier',
                           onTap: () =>
                               setState(() => _selectedType = 'particulier'),
@@ -207,7 +246,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Expanded(
                         child: _TypeCard(
                           icon: Icons.business_rounded,
-                          label: 'Professionnel',
+                          label: l10n.professionalProfile,
                           isSelected: _selectedType == 'professionnel',
                           onTap: () =>
                               setState(() => _selectedType = 'professionnel'),

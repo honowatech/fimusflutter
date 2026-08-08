@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:monitrack/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/security_provider.dart';
 import '../providers/auth_provider.dart';
@@ -95,17 +96,18 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   }
 
   void _forgotPin() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Code PIN oublié ?'),
+        title: Text(l10n.forgotPassword),
         content: const Text(
           'Pour des raisons de sécurité, si vous avez oublié votre code PIN, vous devez vous déconnecter et vous reconnecter. Vos données locales synchronisées seront préservées.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -120,7 +122,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                 );
               }
             },
-            child: const Text('Se déconnecter', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.logout, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -129,6 +131,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final securityProvider = Provider.of<SecurityProvider>(context);
 
@@ -283,7 +286,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
               TextButton(
                 onPressed: _forgotPin,
                 child: Text(
-                  'Code PIN oublié ?',
+                  l10n.forgotPassword,
                   style: TextStyle(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w600,

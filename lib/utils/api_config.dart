@@ -23,10 +23,13 @@ class ApiConfig {
   }
 
   // Auth Endpoints
-  static String get login    => '$baseUrl/login';
-  static String get register => '$baseUrl/register';
-  static String get logout   => '$baseUrl/logout';
-  static String get user     => '$baseUrl/user';
+  static String get login          => '$baseUrl/login';
+  static String get register       => '$baseUrl/register';
+  static String get forgotPassword => '$baseUrl/forgot-password';
+  static String get logout         => '$baseUrl/logout';
+  static String get user           => '$baseUrl/user';
+  static String get updatePseudo   => '$baseUrl/user/update-pseudo';
+  static String get googleAuth     => '$baseUrl/auth/google';
 
   // Reference Data Endpoints
   static String get countries => '$baseUrl/countries';
@@ -37,6 +40,12 @@ class ApiConfig {
   // Sync Endpoints
   static String get syncPull => '$baseUrl/sync/pull';
   static String get syncPush => '$baseUrl/sync/push';
+
+  // Exchange Rates
+  static String get exchangeRates => '$baseUrl/exchange-rates';
+
+  // User Country Update
+  static String get updateCountry => '$baseUrl/user/update-country';
 
   // Announcements
   static String get announcements => '$baseUrl/announcements';

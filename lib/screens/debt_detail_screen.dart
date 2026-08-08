@@ -9,6 +9,7 @@ import '../models/expense.dart';
 import '../models/contact.dart';
 import 'package:intl/intl.dart';
 import 'add_debt_operation_screen.dart';
+import 'debt_screen.dart';
 import '../utils/formatters.dart';
 import '../services/database_service.dart';
 
@@ -74,7 +75,7 @@ class DebtDetailScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final provider = Provider.of<ExpenseProvider>(context);
     final currency = Provider.of<ProfileProvider>(context).profile.currency;
-    
+
     final contacts = Provider.of<ContactProvider>(context).contacts;
     final displayName = _getDisplayNameForTag(debtTag, contacts);
 
@@ -86,14 +87,23 @@ class DebtDetailScreen extends StatelessWidget {
     final isDebt = balance > 0;
     final isSettled = balance == 0;
 
+    bool isCreator = true;
+    if (transactions.isNotEmpty) {
+       final originalTx = transactions.last; // Oldest transaction is likely the original debt
+       if (originalTx.creatorId != null && originalTx.creatorId != provider.currentUserId) {
+           isCreator = false;
+       }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(displayName),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () => _confirmDelete(context, provider),
-          ),
+          if (isCreator)
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _confirmDelete(context, provider),
+            ),
         ],
       ),
       body: Column(
@@ -149,21 +159,28 @@ class DebtDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
+      floatingActionButton: isCreator ? FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => AddDebtOperationScreen(initialTag: debtTag),
             ),
           );
+          if (result == true) {
+            if (context.mounted) {
+              Navigator.pop(context); // Return to DebtScreen
+              DebtScreen.globalKey.currentState?.switchToHistoryTab();
+            }
+          }
         },
         child: Icon(Icons.add, color: Theme.of(context).colorScheme.primary, weight: 900, size: 28),
-      ),
+      ) : null,
     );
   }
 
   Widget _buildTransactionTile(BuildContext context, Expense op, String currency) {
+    final l10n = AppLocalizations.of(context)!;
     final isIncome = op.type == 'income';
     final isPlanned = op.isPlanned;
     
@@ -209,10 +226,10 @@ class DebtDetailScreen extends StatelessWidget {
                 ),
                 child: Text('Mémo', style: TextStyle(fontSize: 10, color: Colors.amber.shade900)),
               ),
-            if (op.originalType != null && op.creatorName != null)
+            if (op.creatorName != null && op.creatorName!.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(top: 4),
-                child: Text('Créé par ${op.creatorName}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.blueGrey)),
+                child: Text(l10n.createdBy(op.creatorName!), style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.blueGrey)),
               ),
           ],
         ),

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
@@ -13,6 +12,7 @@ class ExpenseProvider with ChangeNotifier {
   List<String> _incomeCategories = [];
   List<String> _debtTags = [];
   String? _currentUserId;
+  Future<void>? _loadFuture;
 
   List<Expense> get expenses => _expenses;
   List<String> get categories => _categories;
@@ -25,8 +25,14 @@ class ExpenseProvider with ChangeNotifier {
     loadData();
   }
 
-  Future<void> loadData() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> loadData() {
+    _loadFuture ??= _performLoadData();
+    return _loadFuture!;
+  }
+
+  Future<void> _performLoadData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
     // Get current user id
     final authUser = await AuthService().getCachedUser();
@@ -37,10 +43,17 @@ class ExpenseProvider with ChangeNotifier {
     final List<Map<String, dynamic>> maps = await db.query('expenses');
     _expenses = maps.map((e) {
       final exp = Expense.fromDbMap(e);
-      if (_currentUserId != null && exp.creatorId != null && exp.creatorId != _currentUserId && exp.debtorUserId == _currentUserId) {
+      if (_currentUserId != null &&
+          exp.creatorId != null &&
+          exp.creatorId.toString() != _currentUserId.toString() &&
+          exp.debtorUserId != null &&
+          exp.debtorUserId.toString() == _currentUserId.toString()) {
+        final creatorTagName = (exp.creatorName != null && exp.creatorName!.trim().isNotEmpty)
+            ? exp.creatorName!.trim()
+            : exp.debtTag;
         return exp.copyWith(
           type: exp.type == 'income' ? 'expense' : 'income',
-          debtTag: exp.creatorName ?? exp.debtTag,
+          debtTag: creatorTagName,
           debtorUserId: exp.creatorId,
           originalType: exp.type,
           originalDebtTag: exp.debtTag,
@@ -81,11 +94,11 @@ class ExpenseProvider with ChangeNotifier {
     await _saveDebtTags();
 
     notifyListeners();
+    } finally {
+      _loadFuture = null;
+    }
   }
 
-  Future<void> _saveExpenses() async {
-    // We don't save all expenses at once anymore, we save them individually when added/updated
-  }
 
   Future<void> _saveCategories() async {
     final prefs = await SharedPreferences.getInstance();
@@ -107,9 +120,10 @@ class ExpenseProvider with ChangeNotifier {
 
   Future<void> addExpense(Expense expense, {DatabaseExecutor? executor}) async {
     final db = executor ?? await DatabaseService.instance.database;
-    await db.insert('expenses', expense.toDbMap());
+    final updatedExpense = expense.copyWith(updatedAt: DateTime.now());
+    await db.insert('expenses', updatedExpense.toDbMap());
     
-    _expenses.add(expense);
+    _expenses.add(updatedExpense);
     // Sort by date descending
     _expenses.sort((a, b) => b.date.compareTo(a.date));
 
@@ -132,6 +146,7 @@ class ExpenseProvider with ChangeNotifier {
       {
         'sync_action': 'delete',
         'is_synced': 0,
+        'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -139,6 +154,30 @@ class ExpenseProvider with ChangeNotifier {
     
     _expenses.removeWhere((e) => e.id == id);
     notifyListeners();
+    SyncService().push();
+  }
+
+  Future<void> updateExpense(Expense expense, {DatabaseExecutor? executor}) async {
+    final db = executor ?? await DatabaseService.instance.database;
+    final updatedExpense = expense.copyWith(updatedAt: DateTime.now());
+    await db.update(
+      'expenses',
+      {
+        ...updatedExpense.toDbMap(),
+        'is_synced': 0,
+        'sync_action': 'updated',
+        'updated_at': updatedExpense.updatedAt!.toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [updatedExpense.id],
+    );
+    
+    final index = _expenses.indexWhere((e) => e.id == updatedExpense.id);
+    if (index != -1) {
+      _expenses[index] = updatedExpense;
+      _expenses.sort((a, b) => b.date.compareTo(a.date));
+      notifyListeners();
+    }
     SyncService().push();
   }
 
@@ -201,7 +240,7 @@ class ExpenseProvider with ChangeNotifier {
         _incomeCategories[index] = newCategory;
         for (int i = 0; i < _expenses.length; i++) {
           if (_expenses[i].type == 'income' && _expenses[i].category == oldCategory) {
-            final updatedExpense = _expenses[i].copyWith(category: newCategory);
+            final updatedExpense = _expenses[i].copyWith(category: newCategory, updatedAt: DateTime.now());
             _expenses[i] = updatedExpense;
             final db = await DatabaseService.instance.database;
             await db.update(
@@ -210,6 +249,7 @@ class ExpenseProvider with ChangeNotifier {
                 ...updatedExpense.toDbMap(),
                 'is_synced': 0,
                 'sync_action': 'updated',
+                'updated_at': updatedExpense.updatedAt!.toIso8601String(),
               },
               where: 'id = ?',
               whereArgs: [updatedExpense.id],
@@ -226,7 +266,7 @@ class ExpenseProvider with ChangeNotifier {
         _categories[index] = newCategory;
         for (int i = 0; i < _expenses.length; i++) {
           if (_expenses[i].type == 'expense' && _expenses[i].category == oldCategory) {
-            final updatedExpense = _expenses[i].copyWith(category: newCategory);
+            final updatedExpense = _expenses[i].copyWith(category: newCategory, updatedAt: DateTime.now());
             _expenses[i] = updatedExpense;
             final db = await DatabaseService.instance.database;
             await db.update(
@@ -235,6 +275,7 @@ class ExpenseProvider with ChangeNotifier {
                 ...updatedExpense.toDbMap(),
                 'is_synced': 0,
                 'sync_action': 'updated',
+                'updated_at': updatedExpense.updatedAt!.toIso8601String(),
               },
               where: 'id = ?',
               whereArgs: [updatedExpense.id],

@@ -3,13 +3,23 @@ class UserProfile {
   final String lastName;
   final String currency;
   final String country;
+  final String? photoUrl;
+  final String type;
 
   UserProfile({
     required this.firstName,
     required this.lastName,
     this.currency = 'CFA',
     this.country = 'Tous',
+    this.photoUrl,
+    this.type = 'particulier',
   });
+
+  bool get isProfessionnel {
+    final t = type.toLowerCase().trim();
+    return t == 'professional' || t == 'professionnel' || t == 'agent';
+  }
+  bool get isParticulier => !isProfessionnel;
 
   Map<String, dynamic> toJson() {
     return {
@@ -17,6 +27,8 @@ class UserProfile {
       'lastName': lastName,
       'currency': currency,
       'country': country,
+      'photoUrl': photoUrl,
+      'type': type,
     };
   }
 
@@ -26,6 +38,8 @@ class UserProfile {
       lastName: json['lastName'] ?? '',
       currency: json['currency'] ?? 'CFA',
       country: json['country'] ?? 'Tous',
+      photoUrl: json['photoUrl'],
+      type: json['type'] ?? json['userType'] ?? 'particulier',
     );
   }
 
@@ -34,12 +48,17 @@ class UserProfile {
     String? lastName,
     String? currency,
     String? country,
+    String? photoUrl,
+    String? type,
   }) {
     return UserProfile(
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       currency: currency ?? this.currency,
       country: country ?? this.country,
+      photoUrl: photoUrl ?? this.photoUrl,
+      type: type ?? this.type,
     );
   }
 }
+

@@ -9,6 +9,7 @@ class Expense {
   final String? accountId;
   final String? debtTag;
   final String? debtorUserId;
+  final String debtStatus;
   final bool isLinkedToCashFlow;
   final bool isPlanned; // To mark future scheduled installments
   final double? interestRate;
@@ -21,6 +22,7 @@ class Expense {
   final String? originalType;
   final String? originalDebtTag;
   final String? originalDebtorUserId;
+  final DateTime? updatedAt;
 
   Expense({
     required this.id,
@@ -45,6 +47,8 @@ class Expense {
     this.originalType,
     this.originalDebtTag,
     this.originalDebtorUserId,
+    this.debtStatus = 'pending',
+    this.updatedAt,
   });
 
   Map<String, dynamic> toJson() {
@@ -68,6 +72,8 @@ class Expense {
       'installmentAmount': installmentAmount,
       'creatorId': creatorId,
       'creatorName': creatorName,
+      'debtStatus': debtStatus,
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
@@ -82,7 +88,7 @@ class Expense {
       type: json['type'] ?? 'expense',
       accountId: json['accountId'],
       debtTag: json['debtTag'],
-      debtorUserId: json['debtorUserId'] ?? json['debtor_user_id']?.toString(),
+      debtorUserId: (json['debtorUserId'] ?? json['debtor_user_id'])?.toString(),
       isLinkedToCashFlow: json['isLinkedToCashFlow'] ?? true,
       isPlanned: json['isPlanned'] ?? false,
       interestRate: (json['interestRate'] as num?)?.toDouble(),
@@ -90,8 +96,10 @@ class Expense {
       durationUnit: json['durationUnit'] as String?,
       repaymentFrequency: json['repaymentFrequency'] as String?,
       installmentAmount: (json['installmentAmount'] as num?)?.toDouble(),
-      creatorId: json['creatorId'] ?? json['creator_id']?.toString(),
+      creatorId: (json['creatorId'] ?? json['creator_id'])?.toString(),
       creatorName: json['creatorName'] ?? json['creator_name'],
+      debtStatus: json['debtStatus'] ?? json['debt_status'] ?? 'pending',
+      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at']) : (json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt']) : null),
     );
   }
 
@@ -102,11 +110,15 @@ class Expense {
       'amount': amount,
       'category': category,
       'date': date.toIso8601String(),
+      'paymentMethod': '',
       'note': note,
       'type': originalType ?? type,
       'accountId': accountId,
       'debtTag': originalDebtTag ?? debtTag,
+      'debtorName': '',
+      'debtorPhoneNumber': '',
       'debtorUserId': originalDebtorUserId ?? debtorUserId,
+      'debtStatus': debtStatus,
       'isLinkedToCashFlow': isLinkedToCashFlow ? 1 : 0,
       'isPlanned': isPlanned ? 1 : 0,
       'interestRate': interestRate,
@@ -116,6 +128,7 @@ class Expense {
       'installmentAmount': installmentAmount,
       'creatorId': creatorId,
       'creatorName': creatorName,
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
@@ -130,7 +143,8 @@ class Expense {
       type: map['type'] ?? 'expense',
       accountId: map['accountId'],
       debtTag: map['debtTag'],
-      debtorUserId: map['debtorUserId'],
+      debtorUserId: map['debtorUserId']?.toString(),
+      debtStatus: map['debtStatus'] ?? 'pending',
       isLinkedToCashFlow: map['isLinkedToCashFlow'] == 1,
       isPlanned: map['isPlanned'] == 1,
       interestRate: (map['interestRate'] as num?)?.toDouble(),
@@ -138,8 +152,9 @@ class Expense {
       durationUnit: map['durationUnit'] as String?,
       repaymentFrequency: map['repaymentFrequency'] as String?,
       installmentAmount: (map['installmentAmount'] as num?)?.toDouble(),
-      creatorId: map['creatorId'],
+      creatorId: map['creatorId']?.toString(),
       creatorName: map['creatorName'],
+      updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at']) : null,
     );
   }
 
@@ -166,6 +181,8 @@ class Expense {
     String? originalType,
     String? originalDebtTag,
     String? originalDebtorUserId,
+    String? debtStatus,
+    DateTime? updatedAt,
   }) {
     return Expense(
       id: id ?? this.id,
@@ -190,6 +207,8 @@ class Expense {
       originalType: originalType ?? this.originalType,
       originalDebtTag: originalDebtTag ?? this.originalDebtTag,
       originalDebtorUserId: originalDebtorUserId ?? this.originalDebtorUserId,
+      debtStatus: debtStatus ?? this.debtStatus,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

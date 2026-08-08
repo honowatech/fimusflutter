@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/exchange_rate_service.dart';
 import '../utils/api_config.dart';
+import '../utils/ussd_formatter.dart';
 
 /// Handles bidirectional synchronisation between local SQLite and remote API.
 class SyncService {
@@ -46,11 +49,66 @@ class SyncService {
     final telecomOperators = await db.query('telecom_operators',
         where: 'is_synced = ?', whereArgs: [0]);
 
-    if (accounts.isEmpty &&
-        expenses.isEmpty &&
-        ussdHistories.isEmpty &&
-        ussdOperations.isEmpty &&
-        telecomOperators.isEmpty) {
+    // Map 'delete' action to 'deleted' and filter out reference operators/operations
+    final accountsToPush = accounts.map((row) {
+      final copy = Map<String, dynamic>.from(row);
+      if (copy['sync_action'] == 'delete') {
+        copy['sync_action'] = 'deleted';
+      }
+      return copy;
+    }).toList();
+
+    final expensesToPush = expenses.map((row) {
+      final copy = Map<String, dynamic>.from(row);
+      if (copy['sync_action'] == 'delete') {
+        copy['sync_action'] = 'deleted';
+      }
+      return copy;
+    }).toList();
+
+    final ussdHistoriesToPush = ussdHistories.map((row) {
+      final copy = Map<String, dynamic>.from(row);
+      if (copy['sync_action'] == 'delete') {
+        copy['sync_action'] = 'deleted';
+      }
+      return copy;
+    }).toList();
+
+    // Do not push reference USSD operations (prefix 'ref_')
+    final ussdOperationsToPush = ussdOperations
+        .where((row) => !(row['id'] as String).startsWith('ref_'))
+        .map((row) {
+      final copy = Map<String, dynamic>.from(row);
+      if (copy['sync_action'] == 'delete') {
+        copy['sync_action'] = 'deleted';
+      }
+      // Decode requiredFields JSON string to List for backend validation/processing
+      if (copy['requiredFields'] != null && copy['requiredFields'] is String) {
+        try {
+          copy['requiredFields'] = jsonDecode(copy['requiredFields'] as String);
+        } catch (_) {
+          copy['requiredFields'] = [];
+        }
+      }
+      return copy;
+    }).toList();
+
+    // Do not push reference operators (prefix 'ref_')
+    final telecomOperatorsToPush = telecomOperators
+        .where((row) => !(row['id'] as String).startsWith('ref_'))
+        .map((row) {
+      final copy = Map<String, dynamic>.from(row);
+      if (copy['sync_action'] == 'delete') {
+        copy['sync_action'] = 'deleted';
+      }
+      return copy;
+    }).toList();
+
+    if (accountsToPush.isEmpty &&
+        expensesToPush.isEmpty &&
+        ussdHistoriesToPush.isEmpty &&
+        ussdOperationsToPush.isEmpty &&
+        telecomOperatorsToPush.isEmpty) {
       return SyncResult(success: true, pushed: 0, pulled: 0);
     }
 
@@ -58,11 +116,11 @@ class SyncService {
       final response = await _dio.post(
         ApiConfig.syncPush,
         data: {
-          'accounts': accounts,
-          'expenses': expenses,
-          'ussdHistories': ussdHistories,
-          'ussdOperations': ussdOperations,
-          'telecomOperators': telecomOperators,
+          'accounts': accountsToPush,
+          'expenses': expensesToPush,
+          'ussdHistories': ussdHistoriesToPush,
+          'ussdOperations': ussdOperationsToPush,
+          'telecomOperators': telecomOperatorsToPush,
         },
       );
 
@@ -81,11 +139,11 @@ class SyncService {
         await _cleanDeleted(db, 'ussd_operations');
         await _cleanDeleted(db, 'telecom_operators');
 
-        final total = accounts.length +
-            expenses.length +
-            ussdHistories.length +
-            ussdOperations.length +
-            telecomOperators.length;
+        final total = accountsToPush.length +
+            expensesToPush.length +
+            ussdHistoriesToPush.length +
+            ussdOperationsToPush.length +
+            telecomOperatorsToPush.length;
         return SyncResult(success: true, pushed: total, pulled: 0);
       }
 
@@ -113,40 +171,42 @@ class SyncService {
 
         int pulled = 0;
 
-        final serverAccounts =
-            List<Map<String, dynamic>>.from(data['accounts'] ?? []);
-        for (final row in serverAccounts) {
-          await _upsert(db, 'accounts', _remapAccount(row));
-          pulled++;
-        }
+        await db.transaction((txn) async {
+          final serverAccounts =
+              List<Map<String, dynamic>>.from(data['accounts'] ?? []);
+          for (final row in serverAccounts) {
+            await _upsert(txn, 'accounts', _remapAccount(row));
+            pulled++;
+          }
 
-        final serverExpenses =
-            List<Map<String, dynamic>>.from(data['expenses'] ?? []);
-        for (final row in serverExpenses) {
-          await _upsert(db, 'expenses', _remapExpense(row));
-          pulled++;
-        }
+          final serverExpenses =
+              List<Map<String, dynamic>>.from(data['expenses'] ?? []);
+          for (final row in serverExpenses) {
+            await _upsert(txn, 'expenses', _remapExpense(row));
+            pulled++;
+          }
 
-        final serverHistories =
-            List<Map<String, dynamic>>.from(data['ussdHistories'] ?? []);
-        for (final row in serverHistories) {
-          await _upsert(db, 'ussd_history', _remapHistory(row));
-          pulled++;
-        }
+          final serverHistories =
+              List<Map<String, dynamic>>.from(data['ussdHistories'] ?? []);
+          for (final row in serverHistories) {
+            await _upsert(txn, 'ussd_history', _remapHistory(row));
+            pulled++;
+          }
 
-        final serverOperations =
-            List<Map<String, dynamic>>.from(data['ussdOperations'] ?? []);
-        for (final row in serverOperations) {
-          await _upsert(db, 'ussd_operations', _remapOperation(row));
-          pulled++;
-        }
+          final serverOperations =
+              List<Map<String, dynamic>>.from(data['ussdOperations'] ?? []);
+          for (final row in serverOperations) {
+            await _upsert(txn, 'ussd_operations', _remapOperation(row));
+            pulled++;
+          }
 
-        final serverOperators =
-            List<Map<String, dynamic>>.from(data['telecomOperators'] ?? []);
-        for (final row in serverOperators) {
-          await _upsert(db, 'telecom_operators', _remapTelecomOperator(row));
-          pulled++;
-        }
+          final serverOperators =
+              List<Map<String, dynamic>>.from(data['telecomOperators'] ?? []);
+          for (final row in serverOperators) {
+            await _upsert(txn, 'telecom_operators', _remapTelecomOperator(row));
+            pulled++;
+          }
+        });
 
         return SyncResult(success: true, pushed: 0, pulled: pulled);
       }
@@ -166,13 +226,22 @@ class SyncService {
   // Full sync: pull first, then push
   // ---------------------------------------------------------------------------
   Future<SyncResult> fullSync() async {
+    // Refresh exchange rates in the background (silent failure).
+    try {
+      await ExchangeRateService().syncRates();
+    } catch (_) {}
+
     final pullResult = await pull();
+    if (!pullResult.success) {
+      return pullResult;
+    }
+
     final pushResult = await push();
     return SyncResult(
-      success: pushResult.success && pullResult.success,
+      success: pushResult.success,
       pushed: pushResult.pushed,
       pulled: pullResult.pulled,
-      error: pullResult.error ?? pushResult.error,
+      error: pushResult.error,
     );
   }
 
@@ -181,14 +250,25 @@ class SyncService {
   // ---------------------------------------------------------------------------
   Future<void> _markAsSynced(
       Database db, String table, List<Map<String, dynamic>> rows) async {
+    final batch = db.batch();
     for (final row in rows) {
-      await db.update(
-        table,
-        {'is_synced': 1},
-        where: 'id = ?',
-        whereArgs: [row['id']],
-      );
+      if (row['updated_at'] != null) {
+        batch.update(
+          table,
+          {'is_synced': 1},
+          where: 'id = ? AND updated_at = ?',
+          whereArgs: [row['id'], row['updated_at']],
+        );
+      } else {
+        batch.update(
+          table,
+          {'is_synced': 1},
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
     }
+    await batch.commit(noResult: true);
   }
 
   Future<void> _cleanDeleted(Database db, String table) async {
@@ -198,7 +278,7 @@ class SyncService {
   }
 
   Future<void> _upsert(
-      Database db, String table, Map<String, dynamic> row) async {
+      DatabaseExecutor db, String table, Map<String, dynamic> row) async {
     final id = row['id'];
     if (id != null) {
       final List<Map<String, dynamic>> existing = await db.query(
@@ -215,71 +295,109 @@ class SyncService {
     }
     final localRow = Map<String, dynamic>.from(row)
       ..['is_synced'] = 1
-      ..['sync_action'] = 'updated';
+      ..['sync_action'] = 'updated'
+      ..['updated_at'] = row['updated_at'] ?? DateTime.now().toIso8601String();
     await db.insert(table, localRow,
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Map<String, dynamic> _remapAccount(Map<String, dynamic> r) => {
-        'id': r['uuid'] ?? r['id'],
-        'name': r['name'],
+        'id': r['uuid'] ?? r['id'] ?? '',
+        'name': r['name'] ?? '',
         'balance': r['balance'] != null ? double.parse(r['balance'].toString()) : 0.0,
         'type': r['type'],
         'icon': r['icon'],
         'color': r['color'],
-        'is_shared': (r['isShared'] == true || r['isShared'] == 1) ? 1 : 0,
-        'owner_name': r['ownerName'],
-        'owner_id': r['ownerId'],
+        'isDefault': (r['isDefault'] == true || r['isDefault'] == 1 || r['is_default'] == true || r['is_default'] == 1) ? 1 : 0,
+        'is_shared': (r['isShared'] == true || r['isShared'] == 1 || r['is_shared'] == true || r['is_shared'] == 1) ? 1 : 0,
+        'owner_name': r['ownerName'] ?? r['owner_name'],
+        'owner_id': r['ownerId'] ?? r['owner_id'],
+        'updated_at': r['updated_at'],
       };
 
   /// Remap snake_case server keys to camelCase SQLite columns for expenses.
-  Map<String, dynamic> _remapExpense(Map<String, dynamic> r) => {
-        'id': r['uuid'] ?? r['id'],
-        'title': r['title'],
-        'amount': r['amount'] != null ? double.parse(r['amount'].toString()) : 0.0,
-        'category': r['category'],
-        'date': r['date'],
-        'note': r['note'],
-        'type': r['type'],
-        'accountId': r['account_uuid'] ?? r['accountId'],
-        'debtTag': r['debt_tag'] ?? r['debtTag'],
-        'debtorUserId': r['debtor_user_id'] ?? r['debtorUserId']?.toString(),
-        'isLinkedToCashFlow': r['is_linked_to_cash_flow'] ?? r['isLinkedToCashFlow'] ?? 1,
-        'isPlanned': r['is_planned'] ?? r['isPlanned'] ?? 0,
-        'interestRate': r['interest_rate'] ?? r['interestRate'],
-        'repaymentDuration': r['repayment_duration'] ?? r['repaymentDuration'],
-        'durationUnit': r['duration_unit'] ?? r['durationUnit'],
-        'repayment_frequency': r['repayment_frequency'] ?? r['repaymentFrequency'],
-        'installmentAmount': r['installment_amount'] ?? r['installmentAmount'],
-        'creatorId': r['creator_id'] ?? r['creatorId']?.toString(),
-        'creatorName': r['creator_name'] ?? r['creatorName'],
-      };
+  Map<String, dynamic> _remapExpense(Map<String, dynamic> r) {
+    final rawLinked = r['is_linked_to_cash_flow'] ?? r['isLinkedToCashFlow'];
+    final int linkedVal = (rawLinked == null || rawLinked == true || rawLinked == 1 || rawLinked == '1' || rawLinked == 'true') ? 1 : 0;
+
+    final rawPlanned = r['is_planned'] ?? r['isPlanned'];
+    final int plannedVal = (rawPlanned == true || rawPlanned == 1 || rawPlanned == '1' || rawPlanned == 'true') ? 1 : 0;
+
+    return {
+      'id': r['uuid'] ?? r['id'] ?? '',
+      'title': r['title'] ?? '',
+      'amount': r['amount'] != null ? double.parse(r['amount'].toString()) : 0.0,
+      'category': r['category'] ?? 'Autre',
+      'date': r['date'] ?? DateTime.now().toIso8601String(),
+      'paymentMethod': r['payment_method'] ?? r['paymentMethod'] ?? '',
+      'note': r['note'],
+      'type': r['type'] ?? 'expense',
+      'accountId': r['account_uuid'] ?? r['accountId'],
+      'debtTag': r['debt_tag'] ?? r['debtTag'],
+      'debtorName': r['debtor_name'] ?? r['debtorName'] ?? '',
+      'debtorPhoneNumber': r['debtor_phone_number'] ?? r['debtorPhoneNumber'] ?? '',
+      'debtorUserId': (r['debtor_user_id'] ?? r['debtorUserId'])?.toString(),
+      'isLinkedToCashFlow': linkedVal,
+      'isPlanned': plannedVal,
+      'interestRate': r['interest_rate'] != null ? double.tryParse(r['interest_rate'].toString()) : (r['interestRate'] != null ? double.tryParse(r['interestRate'].toString()) : null),
+      'repaymentDuration': r['repayment_duration'] as int? ?? r['repaymentDuration'] as int?,
+      'durationUnit': r['duration_unit'] ?? r['durationUnit'],
+      'repaymentFrequency': r['repayment_frequency'] ?? r['repaymentFrequency'],
+      'installmentAmount': r['installment_amount'] != null ? double.tryParse(r['installment_amount'].toString()) : (r['installmentAmount'] != null ? double.tryParse(r['installmentAmount'].toString()) : null),
+      'creatorId': (r['creator_id'] ?? r['creatorId'])?.toString(),
+      'creatorName': r['creator_name'] ?? r['creatorName'],
+      'debtStatus': r['debt_status'] ?? r['debtStatus'] ?? 'pending',
+      'updated_at': r['updated_at'],
+    };
+  }
 
   Map<String, dynamic> _remapHistory(Map<String, dynamic> r) => {
-        'id': r['uuid'] ?? r['id'],
-        'operationName': r['operation_name'] ?? r['operationName'],
-        'providerName': r['provider_name'] ?? r['providerName'],
-        'ussdCode': r['ussd_code'] ?? r['ussdCode'],
-        'date': r['date'],
+        'id': r['uuid'] ?? r['id'] ?? '',
+        'operationName': r['operation_name'] ?? r['operationName'] ?? '',
+        'providerName': r['provider_name'] ?? r['providerName'] ?? '',
+        'ussdCode': r['ussd_code'] != null ? UssdFormatter.normalizeTemplate(r['ussd_code'].toString()) : (r['ussdCode'] != null ? UssdFormatter.normalizeTemplate(r['ussdCode'].toString()) : ''),
+        'date': r['date'] ?? DateTime.now().toIso8601String(),
         'status': r['status'] ?? 'success',
         'response': r['response'],
+        'updated_at': r['updated_at'],
       };
 
-  Map<String, dynamic> _remapOperation(Map<String, dynamic> r) => {
-        'id': r['uuid'] ?? r['id'],
-        'name': r['name'],
-        'provider': r['provider'],
-        'category': r['category'],
-        'defaultTemplate': r['default_template'] ?? r['defaultTemplate'],
-        'customTemplate': r['custom_template'] ?? r['customTemplate'],
-        'requiredFields': r['required_fields'] ?? r['requiredFields'],
-      };
+  Map<String, dynamic> _remapOperation(Map<String, dynamic> r) {
+    final def = UssdFormatter.normalizeTemplate((r['default_template'] ?? r['defaultTemplate'])?.toString() ?? '');
+    final custRaw = r['custom_template'] ?? r['customTemplate'];
+    final cust = custRaw != null ? UssdFormatter.normalizeTemplate(custRaw.toString()) : def;
+
+    final rawEnabled = r['is_enabled'] ?? r['isEnabled'];
+    final int enabledVal = rawEnabled != null ? (rawEnabled == 1 || rawEnabled == true || rawEnabled == '1' || rawEnabled == 'true' ? 1 : 0) : 1;
+
+    dynamic reqFields = r['required_fields'] ?? r['requiredFields'];
+    if (reqFields != null && reqFields is! String) {
+      try {
+        reqFields = jsonEncode(reqFields);
+      } catch (_) {
+        reqFields = null;
+      }
+    }
+
+    return {
+      'id': r['uuid'] ?? r['id'] ?? '',
+      'name': r['name'] ?? '',
+      'provider': r['provider'] ?? '',
+      'category': r['category'] ?? '',
+      'defaultTemplate': def,
+      'customTemplate': cust,
+      'requiredFields': reqFields,
+      'is_enabled': enabledVal,
+      'updated_at': r['updated_at'],
+    };
+  }
 
   Map<String, dynamic> _remapTelecomOperator(Map<String, dynamic> r) => {
-        'id': r['uuid'] ?? r['id'],
-        'name': r['name'],
+        'id': r['uuid'] ?? r['id'] ?? '',
+        'name': r['name'] ?? '',
         'userPhoneNumber': r['user_phone_number'] ?? r['userPhoneNumber'],
         'country': (r['country'] != null && r['country'] is Map) ? r['country']['name'] : (r['country'] ?? 'Cameroun'),
+        'updated_at': r['updated_at'],
       };
 
   String _errorMsg(DioException e) {

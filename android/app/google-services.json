@@ -7,6 +7,59 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:60857387958:android:71e9dad3ff6266e8064f17",
+        "android_client_info": {
+          "package_name": "com.honowa.fimus"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "60857387958-9ce1av427mefiseublnl521ipmee3ihc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.honowa.fimus",
+            "certificate_hash": "e6907acb237d9fe11d85f789836c32ad27e2eb3d"
+          }
+        },
+        {
+          "client_id": "60857387958-c37ds66bcu99ejio7gp801lcomg4b38j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.honowa.fimus",
+            "certificate_hash": "311837a157ea84c63faa136c4e3b3e0bf085b48d"
+          }
+        },
+        {
+          "client_id": "60857387958-dfr2a3qsovo7v2uanstthvi52253rtsr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.honowa.fimus",
+            "certificate_hash": "d9dda8c304af5213df09477df13e6de921956ee8"
+          }
+        },
+        {
+          "client_id": "60857387958-er15r76tt09pkco2fo5i3q6ti1c6pp9q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-LEEiOM3Rfb9hMrAZXYOAfctdB3wtcCw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "60857387958-er15r76tt09pkco2fo5i3q6ti1c6pp9q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:60857387958:android:3240bd33da01e96e064f17",
         "android_client_info": {
           "package_name": "com.monitrack.monitrack"

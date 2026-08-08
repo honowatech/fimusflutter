@@ -9,6 +9,7 @@ import '../utils/api_config.dart';
 
 class AccountProvider with ChangeNotifier {
   List<Account> _accounts = [];
+  Future<void>? _loadFuture;
 
   List<Account> get accounts => _accounts;
 
@@ -16,38 +17,50 @@ class AccountProvider with ChangeNotifier {
     loadData();
   }
 
-  Future<void> loadData() async {
-    final db = await DatabaseService.instance.database;
-    final List<Map<String, dynamic>> maps = await db.query('accounts');
-    
-    _accounts = maps.map((e) => Account.fromDbMap(e)).toList();
-    notifyListeners();
+  Future<void> loadData() {
+    _loadFuture ??= _performLoadData();
+    return _loadFuture!;
+  }
+
+  Future<void> _performLoadData() async {
+    try {
+      final db = await DatabaseService.instance.database;
+      final List<Map<String, dynamic>> maps = await db.query('accounts');
+      
+      _accounts = maps.map((e) => Account.fromDbMap(e)).toList();
+      notifyListeners();
+    } finally {
+      _loadFuture = null;
+    }
   }
 
   Future<void> addAccount(Account account, {DatabaseExecutor? executor}) async {
     final db = executor ?? await DatabaseService.instance.database;
-    await db.insert('accounts', account.toDbMap());
-    _accounts.add(account);
+    final updatedAccount = account.copyWith(updatedAt: DateTime.now());
+    await db.insert('accounts', updatedAccount.toDbMap());
+    _accounts.add(updatedAccount);
     notifyListeners();
     SyncService().push();
   }
 
   Future<void> updateAccount(Account account, {DatabaseExecutor? executor}) async {
     final db = executor ?? await DatabaseService.instance.database;
+    final updatedAccount = account.copyWith(updatedAt: DateTime.now());
     await db.update(
       'accounts',
       {
-        ...account.toDbMap(),
+        ...updatedAccount.toDbMap(),
         'is_synced': 0,
         'sync_action': 'updated',
+        'updated_at': updatedAccount.updatedAt!.toIso8601String(),
       },
       where: 'id = ?',
-      whereArgs: [account.id],
+      whereArgs: [updatedAccount.id],
     );
     
-    final index = _accounts.indexWhere((a) => a.id == account.id);
+    final index = _accounts.indexWhere((a) => a.id == updatedAccount.id);
     if (index != -1) {
-      _accounts[index] = account;
+      _accounts[index] = updatedAccount;
       notifyListeners();
     }
     SyncService().push();
@@ -60,6 +73,7 @@ class AccountProvider with ChangeNotifier {
       {
         'sync_action': 'delete',
         'is_synced': 0,
+        'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
       whereArgs: [id],

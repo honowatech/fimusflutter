@@ -8,13 +8,26 @@ import '../providers/auth_provider.dart';
 import '../providers/contact_provider.dart';
 import '../models/account.dart';
 import '../utils/formatters.dart';
+import '../utils/translation_helper.dart';
 import '../services/sync_service.dart';
 import '../services/database_service.dart';
+import '../widgets/add_account_bottom_sheet.dart';
 import 'add_expense_screen.dart';
-import 'package:uuid/uuid.dart';
+import 'account_detail_screen.dart';
+import 'main_screen.dart';
 
 class ExpenseScreen extends StatefulWidget {
   static final GlobalKey<ExpenseScreenState> globalKey = GlobalKey<ExpenseScreenState>();
+  static int initialTabIndex = 0;
+
+  static void navigateToTab(int index) {
+    final state = globalKey.currentState;
+    if (state != null && state.mounted) {
+      state.switchToTab(index);
+    } else {
+      initialTabIndex = index;
+    }
+  }
 
   ExpenseScreen({Key? key}) : super(key: key ?? globalKey);
 
@@ -26,20 +39,46 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
   late TabController _tabController;
 
   void switchToTab(int index) {
-    if (_tabController.length > index) {
+    if (mounted && _tabController.length > index) {
       _tabController.animateTo(index);
     }
   }
+
+  Color _parseAccountColor(String? colorStr, BuildContext context) {
+    if (colorStr == null || colorStr.trim().isEmpty) {
+      return Theme.of(context).colorScheme.primaryContainer;
+    }
+    try {
+      String hex = colorStr.trim().replaceAll('#', '');
+      if (hex.startsWith('0x') || hex.startsWith('0X')) {
+        hex = hex.substring(2);
+      }
+      if (hex.length == 6) {
+        hex = 'FF$hex';
+      }
+      if (hex.length == 8) {
+        return Color(int.parse(hex, radix: 16));
+      }
+    } catch (_) {}
+    return Theme.of(context).colorScheme.primaryContainer;
+  }
+
   
   // History tab filters
-  String _periodFilter = 'month';
+  String _periodFilter = '7days';
+  DateTimeRange? _customDateRange;
   String _typeFilter = 'all';
   String _categoryTypeFilter = 'expense';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(
+      length: 4, 
+      vsync: this,
+      initialIndex: ExpenseScreen.initialTabIndex,
+    );
+    ExpenseScreen.initialTabIndex = 0;
     _tabController.addListener(_handleTabSelection);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -66,7 +105,7 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) {
+      builder: (dialogContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -79,7 +118,7 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
                 leading: const CircleAvatar(backgroundColor: Colors.redAccent, child: Icon(Icons.arrow_upward, color: Colors.white)),
                 title: Text(l10n.expense),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AddExpenseScreen(isIncome: false)));
                 },
               ),
@@ -87,17 +126,21 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
                 leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.arrow_downward, color: Colors.white)),
                 title: Text(l10n.income),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AddExpenseScreen(isIncome: true)));
                 },
               ),
               ListTile(
                 leading: const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.account_balance_wallet, color: Colors.white)),
-                title: Text(l10n.addAccount),
+                title: const Text('Compte'),
                 onTap: () {
-                  Navigator.pop(context);
-                  final accountProvider = Provider.of<AccountProvider>(context, listen: false);
-                  _showAddAccountDialog(context, accountProvider);
+                  Navigator.pop(dialogContext); // Close FAB menu
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    AddAccountBottomSheet.show(context, onSuccess: () {
+                      MainScreen.of(context)?.setSelectedIndex(1);
+                      ExpenseScreen.navigateToTab(2);
+                    });
+                  });
                 },
               ),
               const SizedBox(height: 16),
@@ -117,7 +160,7 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
     
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.expenses),
+        toolbarHeight: 0,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
@@ -170,9 +213,18 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
     final totalIncome = expenseProvider.getTotalIncomes(startOfMonth, endOfMonth);
     final totalBalance = accountProvider.getTotalBalance();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: () async {
+        await SyncService().fullSync();
+        if (context.mounted) {
+          await context.read<ExpenseProvider>().loadData();
+          await context.read<AccountProvider>().loadData();
+        }
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(l10n.monthOverview, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -324,14 +376,21 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
           else
             ...expenseProvider.expenses.take(5).map((transaction) {
               final isIncome = transaction.type == 'income';
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isIncome ? Colors.green.shade100 : Colors.red.shade100,
-                  foregroundColor: isIncome ? Colors.green : Colors.red,
-                  child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward),
-                ),
-                title: Text(transaction.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${transaction.category} • ${transaction.date.toLocal().day}/${transaction.date.toLocal().month}/${transaction.date.toLocal().year}'),
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final currentUserId = authProvider.user?['id']?.toString() ?? authProvider.user?['uuid']?.toString();
+                String subtitleText = '${l10n.translateCategory(transaction.category)} • ${transaction.date.toLocal().day}/${transaction.date.toLocal().month}/${transaction.date.toLocal().year}';
+                if (transaction.creatorId != null && transaction.creatorId != currentUserId && transaction.creatorName != null && transaction.creatorName!.isNotEmpty) {
+                  subtitleText = '${l10n.translateCategory(transaction.category)} • Par ${transaction.creatorName} • ${transaction.date.toLocal().day}/${transaction.date.toLocal().month}/${transaction.date.toLocal().year}';
+                }
+                
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: isIncome ? Colors.green.shade100 : Colors.red.shade100,
+                    foregroundColor: isIncome ? Colors.green : Colors.red,
+                    child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward),
+                  ),
+                  title: Text(transaction.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(subtitleText),
                 trailing: Text(
                   '${isIncome ? '+' : '-'}${transaction.amount.formatAmount()} $currency',
                   style: TextStyle(
@@ -344,37 +403,105 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
             }),
         ],
       ),
+      ),
     );
+  }
+
+  String _getLastMonthLabel() {
+    final now = DateTime.now();
+    final lastMonthYear = now.month == 1 ? now.year - 1 : now.year;
+    final lastMonth = now.month == 1 ? 12 : now.month - 1;
+    const monthNames = [
+      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+    final monthName = monthNames[lastMonth - 1];
+    return '$monthName $lastMonthYear';
+  }
+
+  Future<void> _selectCustomDateRange() async {
+    final now = DateTime.now();
+    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
+    final firstDate = DateTime(sixMonthsAgo.year, sixMonthsAgo.month, sixMonthsAgo.day);
+    final lastDate = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+
+    final defaultStart = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+    final defaultEnd = DateTime(now.year, now.month, now.day);
+
+    final initialStart = _customDateRange?.start ?? defaultStart;
+    final initialEnd = _customDateRange?.end ?? defaultEnd;
+
+    final validStart = initialStart.isBefore(firstDate) ? firstDate : initialStart;
+    final validEnd = initialEnd.isAfter(lastDate) ? lastDate : initialEnd;
+
+    final picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: DateTimeRange(start: validStart, end: validEnd),
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: 'Sélectionner une période (max 6 mois)',
+      cancelText: 'Annuler',
+      confirmText: 'Valider',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _customDateRange = DateTimeRange(
+          start: DateTime(picked.start.year, picked.start.month, picked.start.day, 0, 0, 0, 0),
+          end: DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59, 999),
+        );
+        _periodFilter = 'custom';
+      });
+    } else {
+      if (_customDateRange == null && _periodFilter == 'custom') {
+        setState(() {
+          _periodFilter = '7days';
+        });
+      }
+    }
   }
 
   // --- HISTORY TAB ---
   DateTimeRange _getRange() {
     final now = DateTime.now();
     switch (_periodFilter) {
-      case 'today':
+      case '7days':
+        final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+        final end = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+        return DateTimeRange(start: start, end: end);
+      case '30days':
+        final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 29));
+        final end = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+        return DateTimeRange(start: start, end: end);
+      case 'last_month':
+        final lastMonthYear = now.month == 1 ? now.year - 1 : now.year;
+        final lastMonth = now.month == 1 ? 12 : now.month - 1;
+        final lastDayOfLastMonth = DateTime(lastMonthYear, lastMonth + 1, 0).day;
         return DateTimeRange(
-          start: DateTime(now.year, now.month, now.day),
-          end: DateTime(now.year, now.month, now.day, 23, 59, 59, 999),
+          start: DateTime(lastMonthYear, lastMonth, 1, 0, 0, 0, 0),
+          end: DateTime(lastMonthYear, lastMonth, lastDayOfLastMonth, 23, 59, 59, 999),
         );
-      case 'week':
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final endOfWeek = startOfWeek.add(const Duration(days: 6));
-        return DateTimeRange(
-          start: DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day),
-          end: DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59, 999),
-        );
-      case 'month':
-        final lastDay = DateTime(now.year, now.month + 1, 0);
-        return DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: DateTime(now.year, now.month, lastDay.day, 23, 59, 59, 999),
-        );
-      case 'all':
+      case 'custom':
+        if (_customDateRange != null) {
+          return _customDateRange!;
+        }
+        final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+        final end = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+        return DateTimeRange(start: start, end: end);
       default:
-        return DateTimeRange(
-          start: DateTime(2000),
-          end: DateTime(2100),
-        );
+        final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+        final end = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+        return DateTimeRange(start: start, end: end);
     }
   }
 
@@ -398,18 +525,56 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              DropdownButton<String>(
-                value: _periodFilter,
-                underline: const SizedBox(),
-                items: [
-                  DropdownMenuItem(value: 'all', child: Text(l10n.all)),
-                  DropdownMenuItem(value: 'today', child: Text(l10n.today)),
-                  DropdownMenuItem(value: 'week', child: Text(l10n.thisWeek)),
-                  DropdownMenuItem(value: 'month', child: Text(l10n.thisMonth)),
+              Row(
+                children: [
+                  DropdownButton<String>(
+                    value: _periodFilter,
+                    underline: const SizedBox(),
+                    items: [
+                      const DropdownMenuItem(value: '7days', child: Text('7 derniers jours')),
+                      const DropdownMenuItem(value: '30days', child: Text('30 derniers jours')),
+                      DropdownMenuItem(value: 'last_month', child: Text(_getLastMonthLabel())),
+                      const DropdownMenuItem(value: 'custom', child: Text('(Personnaliser)')),
+                    ],
+                    onChanged: (val) async {
+                      if (val == null) return;
+                      if (val == 'custom') {
+                        await _selectCustomDateRange();
+                      } else {
+                        setState(() => _periodFilter = val);
+                      }
+                    },
+                  ),
+                  if (_periodFilter == 'custom' && _customDateRange != null) ...[
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: _selectCustomDateRange,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.edit_calendar, size: 14, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${_customDateRange!.start.day.toString().padLeft(2, '0')}/${_customDateRange!.start.month.toString().padLeft(2, '0')} - ${_customDateRange!.end.day.toString().padLeft(2, '0')}/${_customDateRange!.end.month.toString().padLeft(2, '0')}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-                onChanged: (val) {
-                  setState(() => _periodFilter = val!);
-                },
               ),
               DropdownButton<String>(
                 value: _typeFilter,
@@ -425,14 +590,38 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
           ),
         ),
         Expanded(
-          child: filteredExpenses.isEmpty
-              ? Center(child: Text(l10n.noOperationPeriod))
-              : ListView.builder(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await SyncService().fullSync();
+              if (context.mounted) {
+                await context.read<ExpenseProvider>().loadData();
+                await context.read<AccountProvider>().loadData();
+              }
+            },
+            child: filteredExpenses.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.5,
+                        child: Center(child: Text(l10n.noOperationPeriod)),
+                      ),
+                    ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                   itemCount: filteredExpenses.length,
                   itemBuilder: (context, index) {
                     final transaction = filteredExpenses[index];
                     final isIncome = transaction.type == 'income';
                     
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final currentUserId = authProvider.user?['id']?.toString() ?? authProvider.user?['uuid']?.toString();
+                    String subtitleText = '${l10n.translateCategory(transaction.category)} • ${transaction.date.toLocal().day}/${transaction.date.toLocal().month}/${transaction.date.toLocal().year}';
+                    if (transaction.creatorId != null && transaction.creatorId != currentUserId && transaction.creatorName != null && transaction.creatorName!.isNotEmpty) {
+                      subtitleText = '${l10n.translateCategory(transaction.category)} • Par ${transaction.creatorName} • ${transaction.date.toLocal().day}/${transaction.date.toLocal().month}/${transaction.date.toLocal().year}';
+                    }
+
                     return Dismissible(
                       key: Key(transaction.id),
                       direction: DismissDirection.endToStart,
@@ -442,6 +631,26 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: const Icon(Icons.delete, color: Colors.white),
                       ),
+                      confirmDismiss: (direction) async {
+                        return await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: Text(l10n.deleteEntryConfirm),
+                            content: Text(l10n.deleteEntryWarning),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: Text(l10n.cancel),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                child: Text(l10n.delete),
+                              ),
+                            ],
+                          ),
+                        ) ?? false;
+                      },
                       onDismissed: (_) {
                         DatabaseService.instance.runTransaction((txn) async {
                           if (transaction.accountId != null) {
@@ -461,7 +670,7 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
                           child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward),
                         ),
                         title: Text(transaction.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${transaction.category} • ${transaction.date.toLocal().day}/${transaction.date.toLocal().month}/${transaction.date.toLocal().year}'),
+                        subtitle: Text(subtitleText),
                         trailing: Text(
                           '${isIncome ? '+' : '-'}${transaction.amount.formatAmount()} $currency',
                           style: TextStyle(
@@ -470,134 +679,49 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
                             fontSize: 16,
                           ),
                         ),
+                        onLongPress: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(l10n.deleteEntryConfirm),
+                              content: Text(l10n.deleteEntryWarning),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: Text(l10n.cancel),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    Navigator.pop(ctx);
+                                    await DatabaseService.instance.runTransaction((txn) async {
+                                      if (transaction.accountId != null) {
+                                        await accountProvider.updateBalance(
+                                          transaction.accountId!,
+                                          isIncome ? -transaction.amount : transaction.amount,
+                                          executor: txn,
+                                        );
+                                      }
+                                      await provider.deleteExpense(transaction.id, executor: txn);
+                                    });
+                                  },
+                                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                  child: Text(l10n.delete),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     );
                   },
                 ),
+          ),
         ),
       ],
     );
   }
 
   // --- ACCOUNTS TAB ---
-  void _showAddAccountDialog(BuildContext context, AccountProvider provider, {Account? existingAccount}) {
-    final l10n = AppLocalizations.of(context)!;
-    final currency = Provider.of<ProfileProvider>(context, listen: false).profile.currency;
-    final contacts = Provider.of<ContactProvider>(context, listen: false).contacts;
-    String name = existingAccount?.name ?? '';
-    double balance = existingAccount?.balance ?? 0.0;
-    int? selectedContactId;
-    bool isSharing = false;
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: Text(existingAccount == null ? l10n.addAccount : l10n.editAccount),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  initialValue: name,
-                  decoration: InputDecoration(labelText: l10n.accountName),
-                  onChanged: (val) => name = val,
-                  enabled: !isSharing,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  initialValue: existingAccount != null ? (balance == 0.0 ? '' : balance.formatAmount()) : '',
-                  decoration: InputDecoration(
-                    labelText: l10n.initialBalance,
-                    prefixText: '$currency ',
-                  ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [AmountInputFormatter()],
-                  onChanged: (val) => balance = double.tryParse(val.replaceAll(RegExp(r'\s+'), '').replaceAll(',', '.')) ?? 0.0,
-                  enabled: !isSharing,
-                ),
-                if (existingAccount == null && contacts.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    value: selectedContactId,
-                    decoration: const InputDecoration(labelText: 'Partager avec (Optionnel)'),
-                    items: [
-                      const DropdownMenuItem<int>(
-                        value: null,
-                        child: Text('Ne pas partager'),
-                      ),
-                      ...contacts.map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text(c.displayName),
-                      )),
-                    ],
-                    onChanged: isSharing ? null : (val) => setState(() => selectedContactId = val),
-                  ),
-                ],
-                if (isSharing) ...[
-                  const SizedBox(height: 16),
-                  const Center(child: CircularProgressIndicator()),
-                  const SizedBox(height: 8),
-                  const Center(child: Text('Création et partage en cours...')),
-                ],
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSharing ? null : () => Navigator.pop(ctx),
-                child: Text(l10n.cancel),
-              ),
-              TextButton(
-                onPressed: isSharing ? null : () async {
-                  if (name.trim().isNotEmpty) {
-                    if (existingAccount == null) {
-                      final newAccount = Account(
-                        id: const Uuid().v4(),
-                        name: name.trim(),
-                        balance: balance,
-                      );
-                      
-                      if (selectedContactId != null) {
-                        setState(() => isSharing = true);
-                        try {
-                          await provider.addAccount(newAccount);
-                          // Wait for push to complete so backend has the account
-                          await SyncService().push();
-                          await provider.shareAccount(newAccount.id, selectedContactId!);
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              const SnackBar(content: Text('Compte créé et partagé avec succès !')),
-                            );
-                            Navigator.pop(ctx);
-                          }
-                        } catch (e) {
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-                            );
-                            setState(() => isSharing = false);
-                          }
-                        }
-                      } else {
-                        provider.addAccount(newAccount);
-                        Navigator.pop(ctx);
-                      }
-                    } else {
-                      provider.updateAccount(existingAccount.copyWith(name: name.trim(), balance: balance));
-                      Navigator.pop(ctx);
-                    }
-                  }
-                },
-                child: Text(l10n.save),
-              ),
-            ],
-          );
-        }
-      ),
-    );
-  }
-
   void _showShareAccountDialog(Account account, bool isOwner) {
     showDialog(
       context: context,
@@ -661,19 +785,82 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
                                   subtitle: Text(contact.email),
                                   trailing: ElevatedButton(
                                     onPressed: () async {
+                                      // Afficher le loader
+                                      showDialog(
+                                        context: context,
+                                        barrierDismissible: false,
+                                        builder: (ctx) => Dialog(
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                                          child: const Padding(
+                                            padding: EdgeInsets.all(20.0),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                CircularProgressIndicator(color: Colors.teal),
+                                                SizedBox(width: 20),
+                                                Expanded(
+                                                  child: Text(
+                                                    "Partage en cours...",
+                                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+
                                       try {
                                         await Provider.of<AccountProvider>(context, listen: false)
                                             .shareAccount(account.id, contact.id);
                                         if (mounted) {
+                                          Navigator.pop(context); // Cacher le loader
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Compte partagé avec ${contact.displayName} !')),
+                                            SnackBar(
+                                              content: Text('Compte partagé avec ${contact.displayName} !'),
+                                              backgroundColor: Colors.green.shade600,
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              margin: const EdgeInsets.all(16),
+                                            ),
                                           );
                                           setState(() {}); // Refresh members list
                                         }
                                       } catch (e) {
                                         if (mounted) {
+                                          Navigator.pop(context); // Cacher le loader
+                                          
+                                          String errorMessage = "Une erreur s'est produite. Veuillez réessayer.";
+                                          String errorString = e.toString().toLowerCase();
+                                          bool isNetworkError = errorString.contains('dioexception') || 
+                                                                errorString.contains('socketexception') || 
+                                                                errorString.contains('network') || 
+                                                                errorString.contains('connexion');
+                                          
+                                          if (isNetworkError) {
+                                            errorMessage = "Partage impossible. Vérifiez votre connexion internet.";
+                                          } else {
+                                            errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('Erreur : ', '');
+                                          }
+
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+                                            SnackBar(
+                                              content: Row(
+                                                children: [
+                                                  Icon(
+                                                    isNetworkError ? Icons.cloud_off : Icons.warning_amber_rounded,
+                                                    color: Colors.white,
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(child: Text(errorMessage)),
+                                                ],
+                                              ),
+                                              backgroundColor: isNetworkError ? Colors.blueGrey.shade700 : Colors.orange.shade800,
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              margin: const EdgeInsets.all(16),
+                                              duration: const Duration(seconds: 4),
+                                            ),
                                           );
                                         }
                                       }
@@ -710,26 +897,50 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
     final accounts = accountProvider.accounts;
     final currentUserId = authProvider.user?['id'];
 
-    if (accounts.isEmpty) {
-      return Center(child: Text(l10n.noAccountSaved));
-    }
-
-    return ListView.builder(
-      itemCount: accounts.length,
+    return RefreshIndicator(
+      onRefresh: () async {
+        await SyncService().fullSync();
+        if (context.mounted) {
+          await context.read<ExpenseProvider>().loadData();
+          await context.read<AccountProvider>().loadData();
+        }
+      },
+      child: accounts.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.8,
+                  child: Center(child: Text(l10n.noAccountSaved)),
+                ),
+              ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: accounts.length,
       itemBuilder: (context, index) {
         final account = accounts[index];
-        final isOwner = account.ownerId == null || account.ownerId == currentUserId;
+        final isOwner = account.ownerId == null ||
+            currentUserId == null ||
+            account.ownerId.toString() == currentUserId.toString();
+        final String initial = account.name.trim().isNotEmpty
+            ? account.name.trim()[0].toUpperCase()
+            : '?';
 
         return ListTile(
           leading: CircleAvatar(
-            backgroundColor: (account.color != null && account.color!.isNotEmpty) 
-                ? Color(int.parse(account.color!.startsWith('#') ? account.color!.replaceFirst('#', '0xff') : '0xff${account.color}'))
-                : Theme.of(context).colorScheme.primaryContainer,
-            child: Text(account.name[0]),
+            backgroundColor: _parseAccountColor(account.color, context),
+            child: Text(initial),
           ),
           title: Row(
             children: [
-              Text(account.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Expanded(
+                child: Text(
+                  account.name.isNotEmpty ? account.name : 'Sans nom',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               if (account.isShared) ...[
                 const SizedBox(width: 8),
                 Container(
@@ -758,7 +969,7 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit, color: Colors.blue),
-                  onPressed: () => _showAddAccountDialog(context, accountProvider, existingAccount: account),
+                  onPressed: () => AddAccountBottomSheet.show(context, existingAccount: account),
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
@@ -791,8 +1002,17 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
               ],
             ],
           ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AccountDetailScreen(accountId: account.id),
+              ),
+            );
+          },
         );
       },
+    ),
     );
   }
 
@@ -886,13 +1106,18 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            itemCount: categories.length,
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await context.read<ExpenseProvider>().loadData();
+            },
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: categories.length,
             itemBuilder: (context, index) {
               final cat = categories[index];
               return ListTile(
                 leading: const Icon(Icons.account_balance_wallet),
-                title: Text(cat),
+                title: Text(l10n.translateCategory(cat)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -924,6 +1149,7 @@ class ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProviderS
                 ),
               );
             },
+          ),
           ),
         ),
       ],

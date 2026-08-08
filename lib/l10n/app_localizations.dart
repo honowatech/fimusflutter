@@ -272,6 +272,18 @@ abstract class AppLocalizations {
   /// **'Êtes-vous sûr de vouloir supprimer l\'opérateur {name} ? Toutes les opérations USSD associées seront également supprimées.'**
   String deleteOperatorConfirm(String name);
 
+  /// No description provided for @deleteOperation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer l\'opération'**
+  String get deleteOperation;
+
+  /// No description provided for @deleteOperationConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Êtes-vous sûr de vouloir supprimer l\'opération {name} ?'**
+  String deleteOperationConfirm(String name);
+
   /// No description provided for @delete.
   ///
   /// In fr, this message translates to:
@@ -335,7 +347,7 @@ abstract class AppLocalizations {
   /// No description provided for @dashboard.
   ///
   /// In fr, this message translates to:
-  /// **'Dashboard'**
+  /// **'Tableau de bord'**
   String get dashboard;
 
   /// No description provided for @history.
@@ -869,7 +881,7 @@ abstract class AppLocalizations {
   /// No description provided for @debtsAndReceivables.
   ///
   /// In fr, this message translates to:
-  /// **'Dettes'**
+  /// **'Dettes & Créances'**
   String get debtsAndReceivables;
 
   /// No description provided for @debts.
@@ -905,7 +917,7 @@ abstract class AppLocalizations {
   /// No description provided for @addDebtTag.
   ///
   /// In fr, this message translates to:
-  /// **'+ Nouveau contact'**
+  /// **'Nouveau contact'**
   String get addDebtTag;
 
   /// No description provided for @debtBalance.
@@ -935,13 +947,13 @@ abstract class AppLocalizations {
   /// No description provided for @linkToCashFlow.
   ///
   /// In fr, this message translates to:
-  /// **'Lier au flux de trésorerie ?'**
+  /// **'Lier à un compte'**
   String get linkToCashFlow;
 
   /// No description provided for @linkToCashFlowDescription.
   ///
   /// In fr, this message translates to:
-  /// **'Si non, cette opération sera un simple mémo.'**
+  /// **'Impacte le solde du compte (encaissement ou sortie d\'argent).'**
   String get linkToCashFlowDescription;
 
   /// No description provided for @addDebtOperation.
@@ -1010,6 +1022,42 @@ abstract class AppLocalizations {
   /// **'Sélectionnez votre pays'**
   String get onboardingStep2;
 
+  /// No description provided for @onboardingStep3.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez votre profil'**
+  String get onboardingStep3;
+
+  /// No description provided for @onboardingStep4.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activer les notifications'**
+  String get onboardingStep4;
+
+  /// No description provided for @onboardingNotificationExplanation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Si vous partagez un compte de dépenses ou une dette avec un proche, les notifications vous seront très utiles'**
+  String get onboardingNotificationExplanation;
+
+  /// No description provided for @onboardingEnableNotifications.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autoriser les notifications'**
+  String get onboardingEnableNotifications;
+
+  /// No description provided for @onboardingNotificationsEnabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Notifications autorisées'**
+  String get onboardingNotificationsEnabled;
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In fr, this message translates to:
+  /// **'Plus tard'**
+  String get onboardingSkip;
+
   /// No description provided for @onboardingContinue.
   ///
   /// In fr, this message translates to:
@@ -1021,6 +1069,1356 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Commencer'**
   String get onboardingFinish;
+
+  /// No description provided for @onboardingNotifHeader.
+  ///
+  /// In fr, this message translates to:
+  /// **'Restez informé en temps réel'**
+  String get onboardingNotifHeader;
+
+  /// No description provided for @onboardingNotifSub.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ne manquez aucun remboursement, suivi de compte ou alerte importante.'**
+  String get onboardingNotifSub;
+
+  /// No description provided for @onboardingNotifBenefit1Title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rappels de dettes & échéances'**
+  String get onboardingNotifBenefit1Title;
+
+  /// No description provided for @onboardingNotifBenefit1Desc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recevez un rappel automatique avant la date limite de remboursement.'**
+  String get onboardingNotifBenefit1Desc;
+
+  /// No description provided for @onboardingNotifBenefit2Title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activité des comptes partagés'**
+  String get onboardingNotifBenefit2Title;
+
+  /// No description provided for @onboardingNotifBenefit2Desc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Soyez averti dès qu\'un proche ajoute ou modifie une dépense.'**
+  String get onboardingNotifBenefit2Desc;
+
+  /// No description provided for @onboardingNotifBenefit3Title.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sécurité & confirmation USSD'**
+  String get onboardingNotifBenefit3Title;
+
+  /// No description provided for @onboardingNotifBenefit3Desc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Gardez un contrôle total sur la validation de vos transactions.'**
+  String get onboardingNotifBenefit3Desc;
+
+  /// No description provided for @home.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accueil'**
+  String get home;
+
+  /// No description provided for @addIncomeAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'+ Revenu'**
+  String get addIncomeAction;
+
+  /// No description provided for @addBorrowAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'+ Emprunt'**
+  String get addBorrowAction;
+
+  /// No description provided for @addAccountAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'+ Compte'**
+  String get addAccountAction;
+
+  /// No description provided for @addExpenseAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'+ Dépense'**
+  String get addExpenseAction;
+
+  /// No description provided for @addLendAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'+ Prêt'**
+  String get addLendAction;
+
+  /// No description provided for @myContacts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mes contacts'**
+  String get myContacts;
+
+  /// No description provided for @noContactSaved.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun contact enregistré'**
+  String get noContactSaved;
+
+  /// No description provided for @addContactsExplanation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoutez des contacts pour partager des comptes et gérer des dettes en commun.'**
+  String get addContactsExplanation;
+
+  /// No description provided for @pseudoTag.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pseudo : {code}'**
+  String pseudoTag(String code);
+
+  /// No description provided for @deleteContact.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer le contact'**
+  String get deleteContact;
+
+  /// No description provided for @deleteContactConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Êtes-vous sûr de vouloir supprimer {name} de vos contacts ?'**
+  String deleteContactConfirm(String name);
+
+  /// No description provided for @contactHasActiveDebts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous avez des dettes en cours avec ce {contact}'**
+  String contactHasActiveDebts(String contact);
+
+  /// No description provided for @createdBy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Par {name}'**
+  String createdBy(String name);
+
+  /// No description provided for @contactDeleted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contact supprimé'**
+  String get contactDeleted;
+
+  /// No description provided for @errorOccurred.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une erreur s\'est produite'**
+  String get errorOccurred;
+
+  /// No description provided for @shareAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partager \"{name}\"'**
+  String shareAccount(String name);
+
+  /// No description provided for @accountMembers.
+  ///
+  /// In fr, this message translates to:
+  /// **'Membres de \"{name}\"'**
+  String accountMembers(String name);
+
+  /// No description provided for @currentMembers.
+  ///
+  /// In fr, this message translates to:
+  /// **'Membres actuels :'**
+  String get currentMembers;
+
+  /// No description provided for @unknown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Inconnu'**
+  String get unknown;
+
+  /// No description provided for @shareWithContact.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partager avec un contact :'**
+  String get shareWithContact;
+
+  /// No description provided for @noContactToShare.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous n\'avez aucun contact. Ajoutez des contacts dans votre profil pour partager un compte.'**
+  String get noContactToShare;
+
+  /// No description provided for @sharingInProgress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partage en cours...'**
+  String get sharingInProgress;
+
+  /// No description provided for @accountSharedSuccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte partagé avec {name} !'**
+  String accountSharedSuccess(String name);
+
+  /// No description provided for @shareImpossible.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partage impossible. Vérifiez votre connexion internet.'**
+  String get shareImpossible;
+
+  /// No description provided for @close.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermer'**
+  String get close;
+
+  /// No description provided for @share.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partager'**
+  String get share;
+
+  /// No description provided for @unknownAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte inconnu'**
+  String get unknownAccount;
+
+  /// No description provided for @accountNotFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte introuvable'**
+  String get accountNotFound;
+
+  /// No description provided for @untitled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sans nom'**
+  String get untitled;
+
+  /// No description provided for @tooltipShareAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partager le compte'**
+  String get tooltipShareAccount;
+
+  /// No description provided for @tooltipEditAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier le compte'**
+  String get tooltipEditAccount;
+
+  /// No description provided for @tooltipDeleteAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer le compte'**
+  String get tooltipDeleteAccount;
+
+  /// No description provided for @tooltipViewMembers.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voir les membres'**
+  String get tooltipViewMembers;
+
+  /// No description provided for @accountBalance.
+  ///
+  /// In fr, this message translates to:
+  /// **'Solde du compte'**
+  String get accountBalance;
+
+  /// No description provided for @sharedAccountBadge.
+  ///
+  /// In fr, this message translates to:
+  /// **'En commun'**
+  String get sharedAccountBadge;
+
+  /// No description provided for @sharedByBadge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partagé par {name}'**
+  String sharedByBadge(String name);
+
+  /// No description provided for @noOperationOnAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune opération sur ce compte'**
+  String get noOperationOnAccount;
+
+  /// No description provided for @newContact.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouveau contact'**
+  String get newContact;
+
+  /// No description provided for @installmentTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échéance {current}/{total}'**
+  String installmentTitle(String current, String total);
+
+  /// No description provided for @debtRepayment.
+  ///
+  /// In fr, this message translates to:
+  /// **'Remboursement de dette'**
+  String get debtRepayment;
+
+  /// No description provided for @collectReceivable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Encaisser une créance'**
+  String get collectReceivable;
+
+  /// No description provided for @newReceivable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouvelle créance'**
+  String get newReceivable;
+
+  /// No description provided for @newDebt.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouvelle dette'**
+  String get newDebt;
+
+  /// No description provided for @collectMoney.
+  ///
+  /// In fr, this message translates to:
+  /// **'Encaisser (Entrée d\'argent)'**
+  String get collectMoney;
+
+  /// No description provided for @repayMoney.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rembourser (Sortie d\'argent)'**
+  String get repayMoney;
+
+  /// No description provided for @receivableToCollect.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créance (Vous devez percevoir)'**
+  String get receivableToCollect;
+
+  /// No description provided for @debtToRepay.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dette (Vous devez rembourser)'**
+  String get debtToRepay;
+
+  /// No description provided for @interestDebtSimulator.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dette avec intérêt (Simulateur)'**
+  String get interestDebtSimulator;
+
+  /// No description provided for @interestDebtSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Calculer et planifier les échéances de remboursement automatiquement'**
+  String get interestDebtSubtitle;
+
+  /// No description provided for @creditDetails.
+  ///
+  /// In fr, this message translates to:
+  /// **'Détails du crédit'**
+  String get creditDetails;
+
+  /// No description provided for @interestRate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Taux d\'intérêt'**
+  String get interestRate;
+
+  /// No description provided for @periodicity.
+  ///
+  /// In fr, this message translates to:
+  /// **'Périodicité'**
+  String get periodicity;
+
+  /// No description provided for @annual.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annuel'**
+  String get annual;
+
+  /// No description provided for @monthly.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mensuel'**
+  String get monthly;
+
+  /// No description provided for @weekly.
+  ///
+  /// In fr, this message translates to:
+  /// **'Hebdomadaire'**
+  String get weekly;
+
+  /// No description provided for @daily.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quotidien'**
+  String get daily;
+
+  /// No description provided for @duration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Durée'**
+  String get duration;
+
+  /// No description provided for @unit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Unité'**
+  String get unit;
+
+  /// No description provided for @months.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mois'**
+  String get months;
+
+  /// No description provided for @years.
+  ///
+  /// In fr, this message translates to:
+  /// **'Années'**
+  String get years;
+
+  /// No description provided for @repaymentFrequency.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fréquence de remboursement'**
+  String get repaymentFrequency;
+
+  /// No description provided for @amountPerInstallment.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montant par échéance'**
+  String get amountPerInstallment;
+
+  /// No description provided for @concernedAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte concerné *'**
+  String get concernedAccount;
+
+  /// No description provided for @selectAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionner un compte'**
+  String get selectAccount;
+
+  /// No description provided for @addComment.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter un commentaire'**
+  String get addComment;
+
+  /// No description provided for @commentOptional.
+  ///
+  /// In fr, this message translates to:
+  /// **'Commentaire (optionnel)'**
+  String get commentOptional;
+
+  /// No description provided for @variableAmount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montant'**
+  String get variableAmount;
+
+  /// No description provided for @variableNumber.
+  ///
+  /// In fr, this message translates to:
+  /// **'Numéro'**
+  String get variableNumber;
+
+  /// No description provided for @variableMerchantCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code Marchand'**
+  String get variableMerchantCode;
+
+  /// No description provided for @noTransaction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune transaction'**
+  String get noTransaction;
+
+  /// No description provided for @expectedDueDate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échéance prévue'**
+  String get expectedDueDate;
+
+  /// No description provided for @memo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mémo'**
+  String get memo;
+
+  /// No description provided for @createdByName.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créé par {name}'**
+  String createdByName(String name);
+
+  /// No description provided for @borrowAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Emprunt'**
+  String get borrowAction;
+
+  /// No description provided for @borrowSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistrer une dette que vous avez contractée'**
+  String get borrowSubtitle;
+
+  /// No description provided for @lendAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créance'**
+  String get lendAction;
+
+  /// No description provided for @lendSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'L\'argent que vous percevrez'**
+  String get lendSubtitle;
+
+  /// No description provided for @repaymentAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Remboursement'**
+  String get repaymentAction;
+
+  /// No description provided for @noDebtOrReceivableRecorded.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune dette ou créance enregistrée pour le moment.'**
+  String get noDebtOrReceivableRecorded;
+
+  /// No description provided for @toRepay.
+  ///
+  /// In fr, this message translates to:
+  /// **'À rembourser'**
+  String get toRepay;
+
+  /// No description provided for @totalToCollect.
+  ///
+  /// In fr, this message translates to:
+  /// **'Total à percevoir'**
+  String get totalToCollect;
+
+  /// No description provided for @noRecentOperation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune opération récente'**
+  String get noRecentOperation;
+
+  /// No description provided for @rejectDebt.
+  ///
+  /// In fr, this message translates to:
+  /// **'Refuser la dette'**
+  String get rejectDebt;
+
+  /// No description provided for @rejectDebtConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Êtes-vous sûr de vouloir supprimer cette dette ? Cette action est irréversible et retirera votre nom de cette opération.'**
+  String get rejectDebtConfirm;
+
+  /// No description provided for @forgotPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN oublié ?'**
+  String get forgotPin;
+
+  /// No description provided for @forgotPinConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pour déverrouiller l\'application sans votre PIN, vous devez vous déconnecter. Toutes les données non synchronisées seront conservées localement.'**
+  String get forgotPinConfirm;
+
+  /// No description provided for @logout.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se déconnecter'**
+  String get logout;
+
+  /// No description provided for @setPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Définir un PIN'**
+  String get setPin;
+
+  /// No description provided for @confirmPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer le PIN'**
+  String get confirmPin;
+
+  /// No description provided for @verifyPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification du PIN'**
+  String get verifyPin;
+
+  /// No description provided for @useBiometrics.
+  ///
+  /// In fr, this message translates to:
+  /// **'Utiliser l\'empreinte / Face ID'**
+  String get useBiometrics;
+
+  /// No description provided for @username.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pseudo'**
+  String get username;
+
+  /// No description provided for @pleaseEnterUsername.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez entrer un pseudo'**
+  String get pleaseEnterUsername;
+
+  /// No description provided for @pleaseFillAllFields.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez remplir tous les champs'**
+  String get pleaseFillAllFields;
+
+  /// No description provided for @pleaseEnterValidEmail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez entrer un email valide'**
+  String get pleaseEnterValidEmail;
+
+  /// No description provided for @forgotPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe oublié ?'**
+  String get forgotPassword;
+
+  /// No description provided for @forgotPasswordInstruction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrez votre adresse email pour recevoir un nouveau mot de passe.'**
+  String get forgotPasswordInstruction;
+
+  /// No description provided for @email.
+  ///
+  /// In fr, this message translates to:
+  /// **'Email'**
+  String get email;
+
+  /// No description provided for @emailOrUsername.
+  ///
+  /// In fr, this message translates to:
+  /// **'Email ou pseudo'**
+  String get emailOrUsername;
+
+  /// No description provided for @password.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe'**
+  String get password;
+
+  /// No description provided for @continueWithGoogle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Continuer avec Google'**
+  String get continueWithGoogle;
+
+  /// No description provided for @noNotifications.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune notification.'**
+  String get noNotifications;
+
+  /// No description provided for @notifications.
+  ///
+  /// In fr, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @officialLanguage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Langue officielle'**
+  String get officialLanguage;
+
+  /// No description provided for @defaultLanguage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Langue par défaut'**
+  String get defaultLanguage;
+
+  /// No description provided for @individualProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Particulier'**
+  String get individualProfile;
+
+  /// No description provided for @personalManagement.
+  ///
+  /// In fr, this message translates to:
+  /// **'Gestion personnelle'**
+  String get personalManagement;
+
+  /// No description provided for @mobileAgentProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Agent Mobile'**
+  String get mobileAgentProfile;
+
+  /// No description provided for @kioskFleetProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Kiosque & Flotte'**
+  String get kioskFleetProfile;
+
+  /// No description provided for @editUsername.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier l\'identifiant'**
+  String get editUsername;
+
+  /// No description provided for @editUsernameNotice.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre identifiant doit être unique. S\'il est modifié avec succès, vos contacts seront notifiés.'**
+  String get editUsernameNotice;
+
+  /// No description provided for @newUsername.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouvel identifiant (Pseudo)'**
+  String get newUsername;
+
+  /// No description provided for @usernameUpdatedSuccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Identifiant modifié avec succès !'**
+  String get usernameUpdatedSuccess;
+
+  /// No description provided for @newPinCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouveau code PIN'**
+  String get newPinCode;
+
+  /// No description provided for @confirmPinCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer le code PIN'**
+  String get confirmPinCode;
+
+  /// No description provided for @pinLockActivated.
+  ///
+  /// In fr, this message translates to:
+  /// **'Verrouillage activé avec succès'**
+  String get pinLockActivated;
+
+  /// No description provided for @activate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activer'**
+  String get activate;
+
+  /// No description provided for @currentPinCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN actuel'**
+  String get currentPinCode;
+
+  /// No description provided for @pinLockDisabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Verrouillage désactivé'**
+  String get pinLockDisabled;
+
+  /// No description provided for @incorrectPinCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN incorrect'**
+  String get incorrectPinCode;
+
+  /// No description provided for @disable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Désactiver'**
+  String get disable;
+
+  /// No description provided for @createAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créer un compte'**
+  String get createAccount;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer le mot de passe'**
+  String get confirmPassword;
+
+  /// No description provided for @passwordsDoNotMatch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les mots de passe ne correspondent pas'**
+  String get passwordsDoNotMatch;
+
+  /// No description provided for @welcome.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bienvenue'**
+  String get welcome;
+
+  /// No description provided for @login.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se connecter'**
+  String get login;
+
+  /// No description provided for @addAccountTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter un compte'**
+  String get addAccountTitle;
+
+  /// No description provided for @accountNameLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nom du compte'**
+  String get accountNameLabel;
+
+  /// No description provided for @accountColor.
+  ///
+  /// In fr, this message translates to:
+  /// **'Couleur du compte'**
+  String get accountColor;
+
+  /// No description provided for @pleaseEnterName.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez saisir un nom'**
+  String get pleaseEnterName;
+
+  /// No description provided for @addContactTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter un contact'**
+  String get addContactTitle;
+
+  /// No description provided for @userCodeLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code utilisateur (ex: USR-12345)'**
+  String get userCodeLabel;
+
+  /// No description provided for @search.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chercher'**
+  String get search;
+
+  /// No description provided for @addToContacts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter aux contacts'**
+  String get addToContacts;
+
+  /// No description provided for @contactNotFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contact introuvable'**
+  String get contactNotFound;
+
+  /// No description provided for @searchCountryHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher un pays...'**
+  String get searchCountryHint;
+
+  /// No description provided for @noCountryFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun pays trouvé'**
+  String get noCountryFound;
+
+  /// No description provided for @catExpenseFood.
+  ///
+  /// In fr, this message translates to:
+  /// **'Alimentation'**
+  String get catExpenseFood;
+
+  /// No description provided for @catExpenseTransport.
+  ///
+  /// In fr, this message translates to:
+  /// **'Transport'**
+  String get catExpenseTransport;
+
+  /// No description provided for @catExpenseLeisure.
+  ///
+  /// In fr, this message translates to:
+  /// **'Loisirs'**
+  String get catExpenseLeisure;
+
+  /// No description provided for @catExpenseHealth.
+  ///
+  /// In fr, this message translates to:
+  /// **'Santé'**
+  String get catExpenseHealth;
+
+  /// No description provided for @catExpenseBills.
+  ///
+  /// In fr, this message translates to:
+  /// **'Factures'**
+  String get catExpenseBills;
+
+  /// No description provided for @catExpenseOther.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autre'**
+  String get catExpenseOther;
+
+  /// No description provided for @catIncomeSalary.
+  ///
+  /// In fr, this message translates to:
+  /// **'Salaires'**
+  String get catIncomeSalary;
+
+  /// No description provided for @catIncomePension.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pension retraite'**
+  String get catIncomePension;
+
+  /// No description provided for @catIncomeFees.
+  ///
+  /// In fr, this message translates to:
+  /// **'Honoraires'**
+  String get catIncomeFees;
+
+  /// No description provided for @catIncomeProfits.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bénéfices'**
+  String get catIncomeProfits;
+
+  /// No description provided for @catIncomeDividends.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dividendes'**
+  String get catIncomeDividends;
+
+  /// No description provided for @catIncomeSale.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vente de bien'**
+  String get catIncomeSale;
+
+  /// No description provided for @catIncomeDonations.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dons'**
+  String get catIncomeDonations;
+
+  /// No description provided for @catIncomeInheritance.
+  ///
+  /// In fr, this message translates to:
+  /// **'Héritages'**
+  String get catIncomeInheritance;
+
+  /// No description provided for @catIncomeOther.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autre'**
+  String get catIncomeOther;
+
+  /// No description provided for @catUssdDeposit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dépôt'**
+  String get catUssdDeposit;
+
+  /// No description provided for @catUssdWithdrawal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retrait'**
+  String get catUssdWithdrawal;
+
+  /// No description provided for @catUssdTransfer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Transfert'**
+  String get catUssdTransfer;
+
+  /// No description provided for @catUssdMerchantPayment.
+  ///
+  /// In fr, this message translates to:
+  /// **'Paiement marchand'**
+  String get catUssdMerchantPayment;
+
+  /// No description provided for @catUssdCredit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crédit'**
+  String get catUssdCredit;
+
+  /// No description provided for @catUssdBalance.
+  ///
+  /// In fr, this message translates to:
+  /// **'Solde'**
+  String get catUssdBalance;
+
+  /// No description provided for @catUssdInternet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Internet'**
+  String get catUssdInternet;
+
+  /// No description provided for @catUssdOther.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autre'**
+  String get catUssdOther;
+
+  /// No description provided for @ussdActionCashIn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dépôt d\'argent (Cash-In)'**
+  String get ussdActionCashIn;
+
+  /// No description provided for @ussdActionCashOutAgent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retrait client (Cash-Out Agent)'**
+  String get ussdActionCashOutAgent;
+
+  /// No description provided for @ussdActionCashOutClient.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retrait d\'argent (Code client)'**
+  String get ussdActionCashOutClient;
+
+  /// No description provided for @ussdActionTransfer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Transfert d\'argent'**
+  String get ussdActionTransfer;
+
+  /// No description provided for @ussdActionMerchant.
+  ///
+  /// In fr, this message translates to:
+  /// **'Paiement marchand'**
+  String get ussdActionMerchant;
+
+  /// No description provided for @ussdActionBalanceAgent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Solde compte Agent/UV'**
+  String get ussdActionBalanceAgent;
+
+  /// No description provided for @ussdActionCredit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Achat crédit'**
+  String get ussdActionCredit;
+
+  /// No description provided for @ussdActionCashInAgent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dépôt d\'argent (Cash-In Agent)'**
+  String get ussdActionCashInAgent;
+
+  /// No description provided for @ussdActionBalanceFleet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Solde compte Flotte/Agent'**
+  String get ussdActionBalanceFleet;
+
+  /// No description provided for @ussdActionInternet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Achat forfait Internet'**
+  String get ussdActionInternet;
+
+  /// No description provided for @resetPasswordBtn.
+  ///
+  /// In fr, this message translates to:
+  /// **'RÉINITIALISER'**
+  String get resetPasswordBtn;
+
+  /// No description provided for @finalizeRegistration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Finalisation de l\'inscription'**
+  String get finalizeRegistration;
+
+  /// No description provided for @finalizeRegistrationDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pour finaliser la création de votre compte via Google, veuillez renseigner les informations ci-dessous.'**
+  String get finalizeRegistrationDesc;
+
+  /// No description provided for @uniqueIdentifierDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ceci est votre identifiant unique sur FIMUS'**
+  String get uniqueIdentifierDesc;
+
+  /// No description provided for @accountType.
+  ///
+  /// In fr, this message translates to:
+  /// **'Type de compte'**
+  String get accountType;
+
+  /// No description provided for @noAccountYet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas encore de compte ? '**
+  String get noAccountYet;
+
+  /// No description provided for @registerNow.
+  ///
+  /// In fr, this message translates to:
+  /// **'S\'inscrire'**
+  String get registerNow;
+
+  /// No description provided for @fullName.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nom complet'**
+  String get fullName;
+
+  /// No description provided for @pleaseSelectCountry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez sélectionner votre pays'**
+  String get pleaseSelectCountry;
+
+  /// No description provided for @min8Chars.
+  ///
+  /// In fr, this message translates to:
+  /// **'Minimum 8 caractères'**
+  String get min8Chars;
+
+  /// No description provided for @professionalProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Professionnel'**
+  String get professionalProfile;
+
+  /// No description provided for @enableLock.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activer le verrouillage'**
+  String get enableLock;
+
+  /// No description provided for @enableLockDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Définissez un code PIN à 4 chiffres pour sécuriser l\'accès.'**
+  String get enableLockDesc;
+
+  /// No description provided for @disableLock.
+  ///
+  /// In fr, this message translates to:
+  /// **'Désactiver le verrouillage'**
+  String get disableLock;
+
+  /// No description provided for @disableLockDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez saisir votre code PIN actuel pour désactiver le verrouillage.'**
+  String get disableLockDesc;
+
+  /// No description provided for @changePinCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier le code PIN'**
+  String get changePinCode;
+
+  /// No description provided for @changePinCodeDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer votre code PIN à 4 chiffres'**
+  String get changePinCodeDesc;
+
+  /// No description provided for @pinCodeChangedSuccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN modifié avec succès'**
+  String get pinCodeChangedSuccess;
+
+  /// No description provided for @incorrectCurrentPinCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN actuel incorrect'**
+  String get incorrectCurrentPinCode;
+
+  /// No description provided for @myUniqueId.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mon identifiant unique'**
+  String get myUniqueId;
+
+  /// No description provided for @uniqueIdCopied.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code unique copié !'**
+  String get uniqueIdCopied;
+
+  /// No description provided for @manageContactsDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Gérer vos contacts pour le partage de comptes et dettes'**
+  String get manageContactsDesc;
+
+  /// No description provided for @syncNow.
+  ///
+  /// In fr, this message translates to:
+  /// **'Synchroniser maintenant'**
+  String get syncNow;
+
+  /// No description provided for @syncNowDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pousse vos données locales vers le cloud'**
+  String get syncNowDesc;
+
+  /// No description provided for @lockApp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Verrouiller l\'application'**
+  String get lockApp;
+
+  /// No description provided for @lockAppDesc.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sécuriser l\'accès avec un code PIN'**
+  String get lockAppDesc;
+
+  /// No description provided for @unlockWithBiometrics.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déverrouiller avec la biométrie'**
+  String get unlockWithBiometrics;
+
+  /// No description provided for @errorMarkNotifRead.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur: impossible de marquer la notification comme lue.'**
+  String get errorMarkNotifRead;
+
+  /// No description provided for @errorMarkAllNotifRead.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur: impossible de marquer les notifications comme lues.'**
+  String get errorMarkAllNotifRead;
+
+  /// No description provided for @completeProfileTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compléter votre profil'**
+  String get completeProfileTitle;
+
+  /// No description provided for @completeProfileSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quelques informations supplémentaires sont requises'**
+  String get completeProfileSubtitle;
+
+  /// No description provided for @countryOfResidence.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pays de résidence'**
+  String get countryOfResidence;
+
+  /// No description provided for @selectCountry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez un pays'**
+  String get selectCountry;
+
+  /// No description provided for @pseudo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pseudo'**
+  String get pseudo;
+
+  /// No description provided for @pseudoExample.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ex: marc123'**
+  String get pseudoExample;
+
+  /// No description provided for @countryRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez sélectionner un pays'**
+  String get countryRequired;
+
+  /// No description provided for @finish.
+  ///
+  /// In fr, this message translates to:
+  /// **'Terminer'**
+  String get finish;
+
+  /// No description provided for @pseudoRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez saisir un pseudo'**
+  String get pseudoRequired;
+
+  /// No description provided for @pseudoLength.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le pseudo doit contenir entre 3 et 15 caractères'**
+  String get pseudoLength;
+
+  /// No description provided for @pseudoFormat.
+  ///
+  /// In fr, this message translates to:
+  /// **'Seuls les lettres, chiffres, tirets et tirets bas sont autorisés'**
+  String get pseudoFormat;
+
+  /// No description provided for @tooManyRequests.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trop de tentatives. Veuillez réessayer plus tard.'**
+  String get tooManyRequests;
+
+  /// No description provided for @tooManyRequestsRetry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trop de tentatives. Veuillez réessayer dans {seconds} secondes.'**
+  String tooManyRequestsRetry(String seconds);
+
+  /// No description provided for @deleteUserAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer mon compte'**
+  String get deleteUserAccount;
+
+  /// No description provided for @deleteUserAccountConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer le compte'**
+  String get deleteUserAccountConfirm;
+
+  /// No description provided for @deleteUserAccountWarning.
+  ///
+  /// In fr, this message translates to:
+  /// **'Êtes-vous sûr de vouloir supprimer définitivement votre compte FIMUS ? Cette action est irréversible et supprimera l\'ensemble de vos données du serveur.'**
+  String get deleteUserAccountWarning;
+
+  /// No description provided for @accountDeletedSuccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre compte a été supprimé avec succès.'**
+  String get accountDeletedSuccess;
 }
 
 class _AppLocalizationsDelegate

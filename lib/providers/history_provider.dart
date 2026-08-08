@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/ussd_history.dart';
 import '../services/database_service.dart';
@@ -22,9 +21,6 @@ class HistoryProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _saveHistory() async {
-    // Unused, we save directly to DB now
-  }
 
   Future<void> addHistoryEntry(UssdHistory entry) async {
     final db = await DatabaseService.instance.database;
@@ -42,6 +38,7 @@ class HistoryProvider with ChangeNotifier {
       {
         'sync_action': 'delete',
         'is_synced': 0,
+        'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -59,6 +56,7 @@ class HistoryProvider with ChangeNotifier {
       {
         'sync_action': 'delete',
         'is_synced': 0,
+        'updated_at': DateTime.now().toIso8601String(),
       },
     );
 

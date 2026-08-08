@@ -2,8 +2,5 @@ Backend/
 .dart_tool/
 build/
 .idea/
-Backend/
-Backend/
-build/
-.idea/
-.dart_tool/
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist

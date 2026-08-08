@@ -4,15 +4,18 @@ import 'package:monitrack/l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/profile_provider.dart';
+import '../providers/auth_provider.dart';
 import '../utils/formatters.dart';
+import '../utils/translation_helper.dart';
 import '../models/expense.dart';
 import '../services/database_service.dart';
 import 'package:uuid/uuid.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final bool isIncome;
+  final String? initialAccountId;
   
-  const AddExpenseScreen({super.key, this.isIncome = false});
+  const AddExpenseScreen({super.key, this.isIncome = false, this.initialAccountId});
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -26,6 +29,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _selectedAccountId;
   DateTime _selectedDate = DateTime.now();
 
+  @override
+  void initState() {
+    super.initState();
+    _selectedAccountId = widget.initialAccountId;
+  }
+
   Future<void> _save() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
@@ -33,6 +42,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
       final accountProvider = Provider.of<AccountProvider>(context, listen: false);
       
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      final currentUserId = authProvider.user?['id']?.toString() ?? authProvider.user?['uuid']?.toString();
+      final currentUserName = '${profileProvider.profile.firstName} ${profileProvider.profile.lastName}'.trim();
+
       final expense = Expense(
         id: const Uuid().v4(),
         title: _title,
@@ -41,6 +55,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         date: _selectedDate,
         type: widget.isIncome ? 'income' : 'expense',
         accountId: _selectedAccountId,
+        creatorId: currentUserId,
+        creatorName: currentUserName.isNotEmpty ? currentUserName : null,
       );
 
       await DatabaseService.instance.runTransaction((txn) async {
@@ -122,6 +138,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
+                autofocus: true,
                 decoration: InputDecoration(labelText: l10n.title),
                 validator: (val) => val == null || val.isEmpty ? l10n.required : null,
                 onSaved: (val) => _title = val!.trim(),
@@ -145,7 +162,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 items: [
                   ...categories.map((cat) => DropdownMenuItem(
                     value: cat,
-                    child: Text(cat),
+                    child: Text(l10n.translateCategory(cat)),
                   )).toList(),
                   DropdownMenuItem(
                     value: '__add_new__',
@@ -181,7 +198,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 16),
               if (accounts.isNotEmpty)
                 DropdownButtonFormField<String>(
-                  value: _selectedAccountId,
+                  value: (accounts.any((a) => a.id == _selectedAccountId)) ? _selectedAccountId : null,
                   decoration: InputDecoration(
                     labelText: l10n.linkedAccountOptional,
                     hintText: l10n.noAccount,
@@ -193,7 +210,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ),
                     ...accounts.map((acc) => DropdownMenuItem(
                       value: acc.id,
-                      child: Text(acc.name),
+                      child: Text(acc.name.isNotEmpty ? acc.name : 'Sans nom'),
                     )).toList()
                   ],
                   onChanged: (val) {

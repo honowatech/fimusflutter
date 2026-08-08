@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../utils/api_config.dart';
 
 class LocaleProvider with ChangeNotifier {
   Locale _locale = const Locale('fr'); // Default to French
@@ -26,5 +29,22 @@ class LocaleProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language_code', locale.languageCode);
     notifyListeners();
+
+    try {
+      final token = prefs.getString('auth_token');
+      if (token != null) {
+        await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/users/locale'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'locale': locale.languageCode}),
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to sync locale to backend: $e');
+    }
   }
 }

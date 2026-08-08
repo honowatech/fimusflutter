@@ -58,15 +58,19 @@ class SecurityProvider extends ChangeNotifier {
       _isAppUnlocked = false;
     }
 
-    try {
-      final isDeviceSupported = await _localAuth.isDeviceSupported();
-      final canCheckBiometrics = await _localAuth.canCheckBiometrics;
-      _isBiometricsAvailable = isDeviceSupported && canCheckBiometrics;
-    } catch (_) {
-      _isBiometricsAvailable = false;
-    }
-    
     notifyListeners();
+
+    // Defer local_auth hardware & root checks post-launch to prevent main thread jank
+    Future.microtask(() async {
+      try {
+        final isDeviceSupported = await _localAuth.isDeviceSupported();
+        final canCheckBiometrics = await _localAuth.canCheckBiometrics;
+        _isBiometricsAvailable = isDeviceSupported && canCheckBiometrics;
+      } catch (_) {
+        _isBiometricsAvailable = false;
+      }
+      notifyListeners();
+    });
   }
 
   /// Lock the application (usually when backgrounded).

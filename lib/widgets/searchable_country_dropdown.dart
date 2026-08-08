@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:monitrack/l10n/app_localizations.dart';
 
 class SearchableCountryDropdown<T> extends FormField<T> {
   final List<Map<String, dynamic>> countries;
@@ -21,6 +22,7 @@ class SearchableCountryDropdown<T> extends FormField<T> {
     this.decoration = const InputDecoration(),
   }) : super(
           builder: (FormFieldState<T> state) {
+            final l10n = AppLocalizations.of(state.context);
             final theme = Theme.of(state.context);
             
             // Find current item matching the value
@@ -69,7 +71,7 @@ class SearchableCountryDropdown<T> extends FormField<T> {
                 isEmpty: state.value == null || (state.value is String && (state.value as String).isEmpty),
                 child: (state.value == null || (state.value is String && (state.value as String).isEmpty))
                     ? Text(
-                        hint,
+                        hint == 'Sélectionnez un pays' && l10n != null ? l10n.onboardingStep2 : hint,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.hintColor,
                         ),
@@ -152,6 +154,7 @@ class _CountrySearchDialogState<T> extends State<_CountrySearchDialog<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final media = MediaQuery.of(context);
 
@@ -170,7 +173,7 @@ class _CountrySearchDialogState<T> extends State<_CountrySearchDialog<T>> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Sélectionnez un pays',
+                  l10n.country,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -185,7 +188,7 @@ class _CountrySearchDialogState<T> extends State<_CountrySearchDialog<T>> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Rechercher un pays...',
+                hintText: l10n.searchCountryHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -204,8 +207,8 @@ class _CountrySearchDialogState<T> extends State<_CountrySearchDialog<T>> {
             const SizedBox(height: 12),
             Expanded(
               child: _filteredCountries.isEmpty
-                  ? const Center(
-                      child: Text('Aucun pays trouvé'),
+                  ? Center(
+                      child: Text(l10n.noCountryFound),
                     )
                   : ListView.builder(
                       itemCount: _filteredCountries.length,

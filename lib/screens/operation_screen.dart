@@ -12,10 +12,13 @@ import 'package:flutter_native_contact_picker/model/contact.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
 import 'qr_scanner_screen.dart';
 import '../utils/formatters.dart';
+import '../utils/ussd_formatter.dart';
 import '../providers/expense_provider.dart';
 import '../providers/account_provider.dart';
 import '../models/expense.dart';
 import '../services/database_service.dart';
+import '../utils/translation_helper.dart';
+import '../providers/auth_provider.dart';
 import 'package:uuid/uuid.dart';
 
 class OperationScreen extends StatefulWidget {
@@ -39,29 +42,33 @@ class _OperationScreenState extends State<OperationScreen> {
   // Contrôleurs pour lecture en temps réel (affichage récapitulatif)
   final Map<String, TextEditingController> _controllers = {};
 
+  bool get _isOrange => widget.operation.provider.toLowerCase().contains('orange');
+  bool get _isMTN => widget.operation.provider.toLowerCase().contains('mtn');
+
   bool get _isCreditPurchase =>
-      widget.operation.id == 'orange_credit' ||
-      widget.operation.id == 'mtn_credit';
+      widget.operation.category.toLowerCase() == 'crédit' ||
+      widget.operation.category.toLowerCase() == 'credit' ||
+      widget.operation.name.toLowerCase().contains('crédit');
 
   bool get _isMerchantPayment =>
-      widget.operation.id == 'orange_merchant' ||
-      widget.operation.id == 'mtn_merchant';
+      widget.operation.name.toLowerCase().contains('marchand') ||
+      widget.operation.name.toLowerCase().contains('merchant') ||
+      widget.operation.category.toLowerCase().contains('marchand') ||
+      widget.operation.category.toLowerCase().contains('merchant');
 
   bool get _isMoneyTransfer =>
-      widget.operation.id == 'orange_transfer' ||
-      widget.operation.id == 'mtn_transfer';
+      (widget.operation.category.toLowerCase() == 'transfert' && !widget.operation.name.toLowerCase().contains('marchand')) ||
+      widget.operation.name.toLowerCase().contains('transfert');
 
-  bool get _canSaveAsExpense => _isMerchantPayment || _isMoneyTransfer;
+  bool get _canSaveAsExpense => _isMerchantPayment || _isMoneyTransfer || _isCreditPurchase;
 
   // Les règles fiscales et tarifaires étant identiques pour tous les
   // émetteurs de monnaie électronique (Orange comme MTN), le calcul est commun.
-  bool get _supportsWithdrawalFees =>
-      widget.operation.id == 'orange_transfer' ||
-      widget.operation.id == 'mtn_transfer';
+  bool get _supportsWithdrawalFees => _isMoneyTransfer && (_isOrange || _isMTN);
 
-  Color get _operatorAccentColor => widget.operation.provider == 'op_orange'
+  Color get _operatorAccentColor => _isOrange
       ? Colors.orange.shade700
-      : (widget.operation.provider == 'op_mtn'
+      : (_isMTN
           ? Colors.amber.shade800
           : Theme.of(context).colorScheme.primary);
 
@@ -113,15 +120,6 @@ class _OperationScreenState extends State<OperationScreen> {
            lower == 'merchant' ||
            lower == 'marchand' ||
            lower == 'code';
-  }
-
-  String? _getPhoneValue(Map<String, String> values) {
-    for (final entry in values.entries) {
-      if (_isPhoneField(entry.key)) {
-        return entry.value;
-      }
-    }
-    return null;
   }
 
   /// Retourne le libellé lisible d'un champ selon son identifiant.
@@ -262,15 +260,27 @@ class _OperationScreenState extends State<OperationScreen> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      String finalCode = widget.operation.activeTemplate;
+      String templateToUse = widget.operation.activeTemplate;
       
       if (_isCreditPurchase && _buyForAnother) {
-        if (widget.operation.id == 'orange_credit') {
-          // Modèle Orange : #150*2*1*{amount}# -> #150*2*2*{contact}*{amount}#
-          finalCode = finalCode.replaceAll('*2*1*', '*2*2*{contact}*');
-        } else if (widget.operation.id == 'mtn_credit') {
-          // Modèle MTN : *126*3*1*{amount}# -> *126*3*2*{contact}*{amount}#
-          finalCode = finalCode.replaceAll('*3*1*', '*3*2*{contact}*');
+        if (!templateToUse.contains('{contact}') && !templateToUse.contains('{phone}')) {
+          if (widget.operation.id == 'orange_credit' || widget.operation.provider.toLowerCase().contains('orange')) {
+            if (templateToUse.contains('*2*1*')) {
+              templateToUse = templateToUse.replaceAll('*2*1*', '*2*2*{contact}*');
+            } else {
+              templateToUse = templateToUse.replaceAll('{amount}', '{contact}*{amount}');
+            }
+          } else if (widget.operation.id == 'mtn_credit' || widget.operation.provider.toLowerCase().contains('mtn')) {
+            if (templateToUse.contains('*3*1*1*')) {
+              templateToUse = templateToUse.replaceAll('*3*1*1*', '*3*1*2*{contact}*');
+            } else if (templateToUse.contains('*3*1*')) {
+              templateToUse = templateToUse.replaceAll('*3*1*', '*3*1*2*{contact}*');
+            } else {
+              templateToUse = templateToUse.replaceAll('{amount}', '{contact}*{amount}');
+            }
+          } else {
+            templateToUse = templateToUse.replaceAll('{amount}', '{contact}*{amount}');
+          }
         }
       }
 
@@ -297,25 +307,28 @@ class _OperationScreenState extends State<OperationScreen> {
         }
       }
 
-      processedValues.forEach((key, value) {
-        finalCode = finalCode.replaceAll('{$key}', value);
-      });
+      final String builtCode = UssdFormatter.buildFinalCode(templateToUse, processedValues);
 
       try {
-        await UssdService.executeUssd(finalCode, {});
+        await UssdService.executeUssd(templateToUse, processedValues);
 
-        // Ajout à l'historique
+        // Ajout à l'historique avec le code final réel exécuté
         historyProvider.addHistoryEntry(UssdHistory(
           id: const Uuid().v4(),
           operationName: widget.operation.name,
           providerName: providerName,
-          ussdCode: finalCode,
+          ussdCode: builtCode,
           date: DateTime.now(),
         ));
         
         if (_canSaveAsExpense && _saveAsExpense) {
           final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
           final accountProvider = Provider.of<AccountProvider>(context, listen: false);
+          
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+          final currentUserId = authProvider.user?['id']?.toString() ?? authProvider.user?['uuid']?.toString();
+          final currentUserName = '${profileProvider.profile.firstName} ${profileProvider.profile.lastName}'.trim();
           
           double? baseAmount = amountField.isNotEmpty
               ? double.tryParse(processedValues[amountField] ?? '')
@@ -333,8 +346,8 @@ class _OperationScreenState extends State<OperationScreen> {
               );
               if (_isMerchantPayment && merchantField.isNotEmpty && processedValues[merchantField] != null && processedValues[merchantField]!.isNotEmpty) {
                 expenseTitle += ' - ${processedValues[merchantField]}';
-              } else if (_isMoneyTransfer) {
-                final phoneVal = _getPhoneValue(processedValues);
+              } else if (_isMoneyTransfer || _isCreditPurchase) {
+                final phoneVal = processedValues['contact'] ?? processedValues['phone'] ?? processedValues['recipient'];
                 if (phoneVal != null && phoneVal.isNotEmpty) {
                   expenseTitle += ' - $phoneVal';
                 }
@@ -349,6 +362,8 @@ class _OperationScreenState extends State<OperationScreen> {
                       date: DateTime.now(),
                       type: 'expense',
                       accountId: _selectedAccountId,
+                      creatorId: currentUserId,
+                      creatorName: currentUserName.isNotEmpty ? currentUserName : null,
                   ), executor: txn);
                   
                   if (_selectedAccountId != null) {
@@ -804,7 +819,7 @@ class _OperationScreenState extends State<OperationScreen> {
                         items: [
                           ...Provider.of<ExpenseProvider>(context).expenseCategories.map((cat) => DropdownMenuItem(
                             value: cat,
-                            child: Text(cat),
+                            child: Text(l10n.translateCategory(cat)),
                           )).toList(),
                           DropdownMenuItem(
                             value: '__add_new__',
@@ -841,7 +856,7 @@ class _OperationScreenState extends State<OperationScreen> {
                       const SizedBox(height: 16),
                       if (Provider.of<AccountProvider>(context).accounts.isNotEmpty)
                         DropdownButtonFormField<String>(
-                          value: _selectedAccountId,
+                          value: (Provider.of<AccountProvider>(context).accounts.any((a) => a.id == _selectedAccountId)) ? _selectedAccountId : null,
                           decoration: InputDecoration(
                             labelText: l10n.linkedAccountOptional,
                             hintText: l10n.noAccount,
@@ -853,7 +868,7 @@ class _OperationScreenState extends State<OperationScreen> {
                             ),
                             ...Provider.of<AccountProvider>(context).accounts.map((acc) => DropdownMenuItem(
                               value: acc.id,
-                              child: Text(acc.name),
+                              child: Text(acc.name.isNotEmpty ? acc.name : 'Sans nom'),
                             )).toList()
                           ],
                           onChanged: (val) {

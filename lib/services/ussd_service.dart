@@ -1,20 +1,15 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../utils/ussd_formatter.dart';
 
 class UssdService {
-  static Future<void> executeUssd(String template, Map<String, String> values) async {
-    String finalCode = template;
-    
-    values.forEach((key, value) {
-      // Sanitize input to only allow digits, *, and #
-      final sanitizedValue = value.replaceAll(RegExp(r'[^0-9*#]'), '');
-      finalCode = finalCode.replaceAll('{$key}', sanitizedValue);
-    });
+  static const _channel = MethodChannel('com.honowa.fimus/ussd');
 
-    // Validate the final code looks like a real USSD code
-    if (!RegExp(r'^[*#][0-9*#]+#$').hasMatch(finalCode)) {
-      throw Exception('Format USSD invalide ou dangereux empêché: $finalCode');
-    }
+  /// Exécution directe classique d'une chaîne USSD complète (ex: `*126#`)
+  static Future<void> executeUssd(String template, Map<String, String> values) async {
+    final String finalCode = UssdFormatter.buildFinalCode(template, values);
 
     // Demander la permission d'appel si ce n'est pas déjà fait
     var status = await Permission.phone.status;
@@ -25,11 +20,20 @@ class UssdService {
       }
     }
 
-    // Lancer l'appel directement
-    bool? res = await FlutterPhoneDirectCaller.callNumber(finalCode);
-    
-    if (res != true) {
-      throw Exception('Impossible de lancer le code USSD: $finalCode');
+    if (Platform.isAndroid) {
+      try {
+        final bool? success = await _channel.invokeMethod<bool>('callUssd', {'code': finalCode});
+        if (success != true) {
+          throw Exception('Impossible de lancer le code USSD');
+        }
+      } on PlatformException catch (e) {
+        throw Exception('Erreur lors de l\'exécution USSD: ${e.message}');
+      }
+    } else {
+      bool? res = await FlutterPhoneDirectCaller.callNumber(finalCode);
+      if (res != true) {
+        throw Exception('Impossible de lancer le code USSD: $finalCode');
+      }
     }
   }
 }

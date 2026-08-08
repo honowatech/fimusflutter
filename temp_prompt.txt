@@ -1,0 +1,233 @@
+<USER_REQUEST>
+Ci-dessous, un plan d'optimisation du login via google. Exécute le selon les instruction
+Précise si tu as besoin que je fasse certaines choses ou choix
+
+Audit du flux actuel
+Chemin nominal : login_screen.dart:303-378 appelle GoogleSignIn.instance.authenticate(), extrait idToken, l'envoie à auth_service.dart:130-166, qui poste sur /auth/google. Le backend (AuthController.php:90-166) appelle https://oauth2.googleapis.com/tokeninfo, cherche l'utilisateur par google_id puis par email, et renvoie un token Sanctum. Si le compte n'existe pas, il renvoie un 422 que le mobile intercepte pour afficher un bottom sheet (pays / type / pseudo) puis rejoue l'appel.
+Le flux fonctionne, mais il y a 1 faille de sécurité critique, 2 bugs fonctionnels silencieux et plusieurs pièges spécifiques au Play Store.
+#
+Problème
+Gravité
+Emplacement
+1
+aud / iss / email_verified du ID token non vérifiés → usurpation de compte
+🔴 Critique
+AuthController.php:100-119
+2
+Le pseudo saisi par l'utilisateur est ignoré par le backend
+🟠 Bug
+AuthController.php:92-98, 145-153
+3
+company_id en mass-assignment via forceCreate
+🟠 Sécurité
+AuthController.php:42, 152
+4
+Détection "inscription incomplète" par comparaison de chaîne française
+🟠 Fragilité
+auth_service.dart:156-163
+5
+throttle:5,1 par IP sur tout le groupe auth → blocages en NAT opérateur
+🔴 Prod
+api.php:10-15
+6
+Empreinte Play App Signing probablement absente de Firebase
+🔴 Prod
+google-services.json
+7
+Pas de suppression de compte in-app (policy Google Play)
+🔴 Policy
+absent
+8
+google_id indexé mais non unique + pas de transaction → doublons
+🟡
+migration add_missing_indexes
+9
+Erreurs Google brutes affichées (e.toString()), non localisées
+🟡 UX
+login_screen.dart:369-374
+10
+iOS Google Sign-In non configuré du tout
+🟡
+ios/Runner/
+Phase 0 — Bloquants avant publication
+Étape 0.1 — Vérifier l'audience du ID token (🔴 la plus importante)
+Le problème : tokeninfo valide la signature et l'expiration, mais pas pour qui le token a été émis. N'importe qui peut créer son propre client OAuth Google, faire signer un utilisateur dans son application, récupérer le ID token et le poster sur /api/auth/google → il obtient un token Sanctum sur le compte Fimus de cette personne. C'est la faille du « confused deputy », classique et exploitable sans effort.
+Action — la dépendance est déjà installée (google/auth ^1.52), donc pas de composer require :
+Ajouter dans Backend/config/services.php :
+'google' => [
+'client_ids' => array_filter(explode(',', env('GOOGLE_CLIENT_IDS', ''))),
+],
+Dans .env serveur : GOOGLE_CLIENT_IDS=60857387958-er15r76tt09pkco2fo5i3q6ti1c6pp9q.apps.googleusercontent.com (le client web de google-services.json — c'est bien lui l'aud des ID tokens Android, via default_web_client_id. Ajouter plus tard le client iOS séparé par une virgule.)
+Remplacer l'appel HTTP par une vérification locale JWKS :
+$verifier = new \Google\Auth\AccessToken(null, app('cache.psr6'));
+$payload = false;
+foreach (config('services.google.client_ids') as $clientId) {
+$payload = $verifier->verify($request->id_token, ['audience' => $clientId]);
+if ($payload) break;
+}
+if (!$payload) {
+return response()->json(['message' => 'Token Google invalide.', 'code' => 'INVALID_GOOGLE_TOKEN'], 401);
+}
+if (!in_array($payload['iss'] ?? '', ['accounts.google.com', 'https://accounts.google.com'], true)) {
+return response()->json(['message' => 'Émetteur invalide.', 'code' => 'INVALID_GOOGLE_TOKEN'], 401);
+}
+Vérifier email_verified avant tout rattachement par email — sans ça, quelqu'un peut créer un compte classique avec l'email d'un tiers (l'inscription ne vérifie aucun email) et récupérer le compte du vrai propriétaire quand celui-ci se connectera via Google :
+$emailVerified = filter_var($payload['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+→ Si false, refuser la création et le rattachement.
+Bénéfice secondaire : suppression d'un appel réseau sortant synchrone à chaque connexion (latence + point de panne), les certificats étant mis en cache.
+Étape 0.2 — Corriger la perte du pseudo
+L'utilisateur saisit un pseudo dans le bottom sheet (login_screen.dart:264-274), le mobile l'envoie, mais googleAuth ne le valide ni ne le persiste. Le hook boot() de User.php:29-37 génère alors un code aléatoire type A3F9K2LM. L'utilisateur voit un identifiant qu'il n'a pas choisi — problématique puisque le pseudo sert au partage de comptes et aux contacts.
+Action : ajouter dans la validation 'pseudo' => 'nullable|string|min:3|max:10|regex:/^[a-zA-Z0-9\-]+$/|unique:users,pseudo' et l'inclure dans le forceCreate. Renvoyer une erreur 422 exploitable si le pseudo est pris (voir 1.1) pour que le bottom sheet le signale sans fermer le flux.
+Étape 0.3 — Fermer le mass-assignment company_id
+User::forceCreate([... 'company_id' => $request->company_id ...]) contourne $fillable. Un client peut se rattacher à n'importe quelle entreprise et accéder à ses données. Action : supprimer company_id du payload de register et googleAuth (ou le valider via un code d'invitation). Remplacer forceCreate par un create avec type/company_id ajoutés explicitement après validation.
+Étape 0.4 — Empreintes de signature Play App Signing
+Le piège n°1 des lancements Play Store. Google Play resigne l'AAB avec sa clé, différente de votre clé d'upload. Si l'empreinte du certificat Play App Signing n'est pas déclarée dans Firebase, la connexion Google fonctionne en debug et en local mais échoue systématiquement dès l'installation depuis le Play Store (clientConfigurationError / DEVELOPER_ERROR 10). Vos deux empreintes actuelles (311837a1…, d9dda8c3…) correspondent vraisemblablement au debug et à l'upload.
+Action, dans l'ordre :
+Play Console → Configuration → Intégrité de l'application → App signing : copier le SHA-1 et le SHA-256 du certificat de signature d'application (pas celui d'upload).
+Firebase Console → Paramètres du projet → app com.honowa.fimus → ajouter les deux empreintes.
+Re-télécharger google-services.json, écraser android/app/google-services.json, rebuild.
+Vérifier via la piste internal testing (build installé depuis le Play Store, pas un APK local) — c'est le seul test valable.
+Étape 0.5 — Écran de consentement OAuth en production
+Si l'écran de consentement du projet Google Cloud est en mode Testing, seuls les comptes de test listés peuvent se connecter ; tous les autres échouent après publication. Les scopes email/profile étant non sensibles, aucune revue Google n'est requise — il suffit de basculer en In production. Vérifier aussi le nom d'application et le logo affichés dans la popup (c'est ce que l'utilisateur voit).
+Étape 0.6 — Suppression de compte (policy Google Play)
+Google Play exige, pour toute app permettant la création de compte : un chemin de suppression dans l'application et une URL web accessible. Vous avez la page web (web.php:21-26) mais aucun parcours in-app — profile_screen.dart ne propose que la déconnexion. Risque de rejet ou de retrait.
+Action : DELETE /api/user (auth:sanctum) qui révoque les tokens, anonymise/supprime les données liées, puis supprime l'utilisateur — plus une entrée « Supprimer mon compte » dans l'onglet Mon Compte avec double confirmation. Déclarer l'URL web dans la fiche Play Console.
+Phase 1 — Robustesse du flux
+Étape 1.1 — Remplacer le string-matching par des codes d'erreur
+Aujourd'hui le mobile devine l'état « inscription à compléter » en cherchant 'informations supplémentaires' dans le message (auth_service.dart:156-163). Une reformulation, une traduction ou un changement de casse côté serveur casse le flux : l'utilisateur verrait un SnackBar rouge au lieu du formulaire.
+Action :
+Backend : return response()->json(['message' => …, 'code' => 'REGISTRATION_INCOMPLETE'], 422). Prévoir aussi PSEUDO_TAKEN, EMAIL_UNVERIFIED, INVALID_GOOGLE_TOKEN.
+Mobile : brancher sur e.response?.data['code'], avec le contains actuel conservé en fallback le temps que tous les clients soient mis à jour (les anciennes versions restent installées longtemps — toute réponse d'erreur doit rester rétro-compatible).
+Étape 1.2 — Repenser le rate limiting (🔴 gros risque post-lancement)
+throttle:5,1 sur le groupe entier (api.php:10) = 5 requêtes/minute par adresse IP, partagées entre login, register, auth/google et forgot-password. En Afrique centrale, une part importante du trafic mobile sort par CGNAT : des milliers d'utilisateurs partagent une même IP publique. Aux heures de pointe, des utilisateurs légitimes recevront 429 Too Many Attempts. (message anglais brut affiché tel quel par auth_service.dart:246).
+Action :
+Sortir /auth/google du groupe : sa fenêtre est indépendante, et le passage 401→bottom sheet→2ᵉ appel consomme déjà 2 requêtes sur 5.
+Définir des limiteurs nommés dans un RateLimiter::for(...) : clé composite email + IP pour login, clé sur sub Google pour auth/google, et un plafond global par IP nettement plus élevé (ex. 30/min) pour absorber le NAT.
+Mobile : détecter le 429, lire l'en-tête Retry-After, afficher un message localisé (« Trop de tentatives, réessayez dans X secondes ») au lieu du texte serveur.
+Étape 1.3 — Idempotence et concurrence
+Un double-tap ou un retry réseau peut déclencher deux forceCreate avec le même email → violation de contrainte unique → 500 au visage de l'utilisateur, en plein onboarding.
+Action :
+Migration : google_id en unique() (actuellement seulement indexé).
+Envelopper la recherche/création dans DB::transaction + lockForUpdate, ou utiliser firstOrCreate, avec un catch (QueryException) qui retente une lecture avant d'échouer.
+Mobile : désactiver le bouton pendant l'appel (le _isLoading existe, vérifier qu'il couvre bien aussi le second appel après le bottom sheet).
+Étape 1.4 — Traiter tous les GoogleSignInExceptionCode
+Seul canceled est géré (login_screen.dart:313-319) ; le reste tombe dans le catch générique qui affiche e.toString() — donc un texte technique anglais, non traduit, exposant des détails internes.
+Action : mapper chaque code de l'énumération sur un message localisé dans les .arb :
+Code
+Cas réel
+Message utilisateur
+canceled
+fermeture de la popup
+(silence)
+interrupted
+appel entrant, app en arrière-plan
+« Connexion interrompue, réessayez »
+uiUnavailable
+aucun compte Google sur l'appareil, ROM sans Play Services
+« Aucun compte Google trouvé. Ajoutez-en un ou utilisez email/mot de passe »
+clientConfigurationError
+empreinte SHA absente (voir 0.4)
+« Configuration indisponible » + log Crashlytics
+providerConfigurationError
+Play Services obsolètes/absents
+« Mettez à jour Google Play Services »
+userMismatch
+changement de compte
+« Réessayez »
+Ajouter un repli visible vers l'inscription email/mot de passe : sur une part non négligeable du parc Android (Huawei récents, ROMs chinoises, appareils très bas de gamme) la connexion Google est structurellement indisponible.
+Étape 1.5 — Expiration du ID token pendant le bottom sheet
+Le même idToken est réutilisé pour le second appel (login_screen.dart:352-359). Il est valide ~1 h, ce qui suffit en général — mais si l'utilisateur laisse le formulaire ouvert (chargement des pays lent, coupure réseau, app en arrière-plan), l'appel échoue en 401 et l'utilisateur perd sa saisie.
+Action : en cas de INVALID_GOOGLE_TOKEN sur le second appel, relancer authenticate() en silence et rejouer la requête en conservant type/country_id/pseudo déjà saisis.
+Étape 1.6 — Ne pas forcer signOut() à chaque tentative
+login_screen.dart:306-308 appelle signOut() avant chaque authenticate(), ce qui impose le sélecteur de compte à chaque fois. Action : le supprimer du chemin nominal (le garder derrière un « Changer de compte » explicite) et envisager attemptLightweightAuthentication() pour restaurer la photo de profil sans interaction.
+Étape 1.7 — Intercepteur 401 global
+AuthService n'a qu'un intercepteur onRequest (auth_service.dart:17-25). Si le token Sanctum est révoqué (suppression côté backoffice Filament, purge en base), le 401 n'est détecté qu'au prochain checkAuthStatus : d'ici là l'app échoue silencieusement sur chaque requête. Action : ajouter un onError qui, sur 401 hors endpoints d'auth, purge le token et redirige vers l'écran de connexion via navigatorKey.
+Étape 1.8 — Comptes Google incomplets
+Un compte créé avant un correctif, ou via un chemin détourné, peut se retrouver sans country_id (colonne nullable) — le profil retombe alors sur 'Tous' et les taux de change / codes USSD deviennent incohérents. Action : exposer un flag profile_complete dans la réponse /api/user, et déclencher le bottom sheet de complétion au démarrage si false.
+Phase 2 — Sécurité et conformité
+Étape 2.1 — Nonce anti-rejeu (optionnel, après 0.1)
+Dans google_sign_in 7.2.0 le nonce est un paramètre d'initialize(), pas d'authenticate() ([google_sign_in.dart:314-319](https://pub.dev/packages/google_sign_in)). Implémentation : générer un nonce aléatoire, appeler initialize(nonce: …) juste avant authenticate(), envoyer le nonce au backend qui compare avec la claim nonce du payload. À faire seulement après 0.1 — le contrôle d'aud apporte 90 % du bénéfice pour 10 % de l'effort.
+Étape 2.2 — Cycle de vie des tokens Sanctum
+'expiration' => null dans config/sanctum.php : les tokens sont éternels, et chaque connexion Google en crée un nouveau sans révoquer les précédents → la table personal_access_tokens grossit indéfiniment et un token exfiltré reste valide à vie.
+Action : nommer les tokens par appareil (auth_token:<device_id>) et révoquer les homonymes à la connexion ; définir une expiration (30-90 jours) avec renouvellement transparent au démarrage ; commande planifiée sanctum:prune-expired.
+Étape 2.3 — Assainir les flux mot de passe adjacents
+Ces deux points ne concernent pas Google directement mais cassent la sécurité du même compte — un compte créé via Google reste joignable par mot de passe :
+AuthController.php:182-204 : forgotPassword réinitialise immédiatement le mot de passe et l'envoie en clair par email, sans lien à jeton. N'importe qui connaissant un email peut invalider le mot de passe d'un tiers. De plus exists:users,email permet d'énumérer les comptes existants.
+AuthController.php:49 : WelcomePasswordMail($user, $request->password) envoie le mot de passe en clair à l'inscription.
+Action : migrer vers le PasswordBroker standard de Laravel (lien signé à durée limitée), supprimer tout envoi de mot de passe en clair, et répondre systématiquement 200 sur forgot-password pour éviter l'énumération.
+Étape 2.4 — Attestation d'appareil
+L'endpoint /api/auth/google est ouvert. Après 0.1 il n'accepte plus qu'un token émis pour vos clients, ce qui suffit à court terme. À moyen terme, si vous voyez du trafic automatisé : Firebase App Check avec Play Integrity, en mode monitoring d'abord (jamais en enforcing dès le premier jour — cela bloque les appareils sans Play Services certifié).
+Étape 2.5 — Conformité de la fiche Play Console
+Data safety form : déclarer la collecte email, nom, photo de profil, identifiant utilisateur, données financières ; préciser le chiffrement en transit et le lien de suppression.
+Politique de confidentialité : la page existe (web.php:9-11) — vérifier qu'elle mentionne explicitement l'authentification Google, les données récupérées, et la durée de conservation.
+Respecter les Google Sign-In branding guidelines pour le bouton (logo, libellé, contraste) — le motif de rejet le plus fréquent sur cette fonctionnalité.
+L'app demande l'exécution de codes USSD et la lecture des contacts : justifier chaque permission sensible dans la déclaration, indépendamment du sujet Google.
+Étape 2.6 — Localisation des messages serveur
+Les messages backend sont en français en dur alors que l'app est bilingue FR/EN. Action : envoyer Accept-Language depuis Dio et utiliser les fichiers de langue Laravel — ou (plus simple et plus robuste) ne se fier que aux code machine côté mobile et traduire intégralement en local.
+Phase 3 — Observabilité et validation
+Étape 3.1 — Instrumentation
+Sans télémétrie, un échec massif d'authentification post-lancement est invisible jusqu'aux avis 1 étoile.
+Backend : logger chaque échec googleAuth avec le motif (aud invalide, email non vérifié, pseudo pris) — sans jamais logger le token.
+Mobile : Crashlytics + un événement Analytics par étape (google_auth_started, _needs_registration, _success, _failed + code). Le taux d'abandon sur le bottom sheet est la métrique clé.
+Étape 3.2 — Tests avant publication
+Backend : tests unitaires sur googleAuth avec payload mocké — aud étranger → 401 ; email_verified: false → refus ; création simultanée → un seul utilisateur ; pseudo présent en base.
+Appareils réels, build installé depuis la piste internal testing :
+appareil sans compte Google configuré ;
+appareil avec 2+ comptes Google (choix, puis changement de compte) ;
+email Google déjà inscrit en mode classique (rattachement) ;
+réseau coupé pendant le bottom sheet ; app tuée en pleine popup ;
+Android 13/14/15 (Credential Manager) et Android 8-10 ;
+appareil sans Play Services.
+Reprise : réinstaller l'app et vérifier que la reconnexion Google retrouve bien le compte (via google_id) sans redemander pays/type.
+Étape 3.3 — Build de release
+Aucun minifyEnabled dans android/app/build.gradle.kts : pas de risque R8 sur Google Sign-In aujourd'hui, mais si vous activez la minification, testez impérativement la connexion Google sur le build minifié avant publication.
+Étape 3.4 — iOS (pour plus tard)
+Actuellement ios/Runner/ ne contient ni GoogleService-Info.plist, ni GIDClientID dans Info.plist, ni URL scheme REVERSED_CLIENT_ID, et google-services.json n'a pas de client iOS (client_type: 2). La connexion Google échouera immédiatement sur iOS. À traiter avant toute soumission App Store, avec ajout du client iOS dans GOOGLE_CLIENT_IDS côté serveur.
+Ce qui cassera après publication, si rien n'est fait
+Symptôme rapporté
+Cause probable
+Étape qui l'évite
+« Connexion Google impossible » pour tous les utilisateurs Play Store, alors que ça marche en test local
+Empreinte Play App Signing absente de Firebase
+0.4
+Ça marche pour vous et l'équipe, échoue pour tous les autres
+Écran de consentement OAuth en mode Testing
+0.5
+Erreurs intermittentes « Too Many Attempts » aux heures de pointe
+throttle:5,1 par IP + CGNAT opérateur
+1.2
+Utilisateurs avec un identifiant aléatoire qu'ils n'ont pas choisi
+Pseudo ignoré par le backend
+0.2
+Comptes compromis / accès à des données d'autrui
+aud non vérifiée
+0.1
+Erreurs 500 aléatoires à l'inscription
+Double-tap → collision unique email
+1.3
+SnackBar rouge avec du texte technique anglais
+Codes d'exception non mappés
+1.4
+Flux d'inscription Google totalement cassé après un déploiement backend
+String-matching sur le message d'erreur
+1.1
+Avertissement ou retrait Play Console
+Pas de suppression de compte in-app
+0.6
+Utilisateurs bloqués sans alternative
+Aucun repli quand Google Sign-In est indisponible
+1.4
+Ordre d'exécution recommandé
+Sprint 1 (bloquant publication) : 0.1 → 0.2 → 0.3 → 1.1 → 0.4 → 0.5 → 0.6
+Rationale : 0.1 et 1.1 touchent la même méthode googleAuth — les faire ensemble. 0.4/0.5 sont de la configuration console, sans code, mais vérifiables uniquement via la piste internal testing, donc à lancer tôt dans le sprint.
+Sprint 2 (robustesse) : 1.2 → 1.3 → 1.4 → 1.5 → 1.6 → 1.7 → 1.8 → 3.1
+Sprint 3 (durcissement) : 2.2 → 2.3 → 2.5 → 2.6 → 3.2 → 3.3
+Backlog : 2.1, 2.4, 3.4
+Point de vigilance transversal : toute modification du contrat d'API doit rester rétro-compatible, car les versions déjà installées depuis le Play Store continueront d'appeler l'ancien contrat pendant des mois — d'où l'importance d'ajouter les champs code sans retirer les message existants.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-02T00:45:43+01:00.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

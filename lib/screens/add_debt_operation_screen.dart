@@ -6,13 +6,15 @@ import '../providers/expense_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/contact_provider.dart';
+import '../utils/formatters.dart';
+import '../utils/translation_helper.dart';
 import '../providers/auth_provider.dart';
 import '../models/contact.dart';
-import '../utils/formatters.dart';
 import '../models/expense.dart';
-import '../models/expense.dart';
+import '../services/sync_service.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../widgets/add_contact_bottom_sheet.dart';
 import 'package:uuid/uuid.dart';
 
 class AddDebtOperationScreen extends StatefulWidget {
@@ -118,90 +120,165 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
     });
   }
 
+  void _showLoader() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              CircularProgressIndicator(color: Colors.teal),
+              SizedBox(width: 20),
+              Expanded(
+                child: Text(
+                  "Enregistrement en cours...",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       
-      final authUser = await AuthService().getCachedUser();
-      final currentUserId = authUser?['id']?.toString() ?? authUser?['uuid']?.toString();
-      final currentUserName = authUser?['name']?.toString() ?? 'Utilisateur';
+      _showLoader();
+      bool isSuccessLocally = false;
 
-      final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
-      final accountProvider = Provider.of<AccountProvider>(context, listen: false);
-      
-      final generatedTitle = widget.initialTag != null
-          ? (_isIncome ? 'Remboursement perçu' : 'Dette remboursée')
-          : (_isIncome ? 'Emprunt' : 'Prêt');
+      try {
+        final authUser = await AuthService().getCachedUser();
+        final currentUserId = authUser?['id']?.toString() ?? authUser?['uuid']?.toString();
+        final currentUserName = authUser?['name']?.toString() ?? 'Utilisateur';
 
-      double originalAmount = double.tryParse(_amountController.text.replaceAll(RegExp(r'\s+'), '').replaceAll(',', '.')) ?? 0.0;
-      double amountToRecord = _isCreditSimulation ? _totalDebtAmount : _amount;
+        final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
+        final accountProvider = Provider.of<AccountProvider>(context, listen: false);
+        
+        final generatedTitle = widget.initialTag != null
+            ? (_isIncome ? 'Remboursement perçu' : 'Dette remboursée')
+            : (_isIncome ? 'Emprunt' : 'Prêt');
+        double amountToRecord = _isCreditSimulation ? _totalDebtAmount : _amount;
 
-      await DatabaseService.instance.runTransaction((txn) async {
-        await expenseProvider.addExpense(Expense(
-          id: const Uuid().v4(),
-          title: generatedTitle,
-          amount: amountToRecord,
-          category: _isLinkedToCashFlow ? (_selectedCategory ?? 'Autre') : 'Dette',
-          date: _selectedDate,
-          type: _isIncome ? 'income' : 'expense',
-          accountId: _isLinkedToCashFlow ? _selectedAccountId : null,
-          debtTag: _selectedDebtTag,
-          debtorUserId: _selectedDebtorUserId,
-          isLinkedToCashFlow: _isLinkedToCashFlow,
-          note: _addComment ? _comment : null,
-          interestRate: _isCreditSimulation ? _interestRate : null,
-          repaymentDuration: _isCreditSimulation ? _repaymentDuration : null,
-          durationUnit: _isCreditSimulation ? _durationUnit : null,
-          repaymentFrequency: _isCreditSimulation ? _repaymentFrequency : null,
-          installmentAmount: _isCreditSimulation ? _installmentAmount : null,
-          creatorId: currentUserId,
-          creatorName: currentUserName,
-        ), executor: txn);
+        await DatabaseService.instance.runTransaction((txn) async {
+          await expenseProvider.addExpense(Expense(
+            id: const Uuid().v4(),
+            title: generatedTitle,
+            amount: amountToRecord,
+            category: _isLinkedToCashFlow ? (_selectedCategory ?? 'Remboursement') : 'Dette',
+            date: _selectedDate,
+            type: _isIncome ? 'income' : 'expense',
+            accountId: _isLinkedToCashFlow ? _selectedAccountId : null,
+            debtTag: _selectedDebtTag,
+            debtorUserId: _selectedDebtorUserId,
+            isLinkedToCashFlow: _isLinkedToCashFlow,
+            note: _addComment ? _comment : null,
+            interestRate: _isCreditSimulation ? _interestRate : null,
+            repaymentDuration: _isCreditSimulation ? _repaymentDuration : null,
+            durationUnit: _isCreditSimulation ? _durationUnit : null,
+            repaymentFrequency: _isCreditSimulation ? _repaymentFrequency : null,
+            installmentAmount: _isCreditSimulation ? _installmentAmount : null,
+            creatorId: currentUserId,
+            creatorName: currentUserName,
+          ), executor: txn);
 
-        if (_isCreditSimulation) {
-          double durationInYears = _durationUnit == 'Années' ? _repaymentDuration.toDouble() : _repaymentDuration / 12;
-          int n = 1;
-          if (_repaymentFrequency == 'Mensuelle') n = (durationInYears * 12).round();
-          else if (_repaymentFrequency == 'Hebdomadaire') n = (durationInYears * 52).round();
-          else if (_repaymentFrequency == 'Quotidienne') n = (durationInYears * 365).round();
-          else if (_repaymentFrequency == 'Annuelle') n = durationInYears.round();
-          if (n <= 0) n = 1;
+          if (_isCreditSimulation) {
+            double durationInYears = _durationUnit == 'Années' ? _repaymentDuration.toDouble() : _repaymentDuration / 12;
+            int n = 1;
+            if (_repaymentFrequency == 'Mensuelle') n = (durationInYears * 12).round();
+            else if (_repaymentFrequency == 'Hebdomadaire') n = (durationInYears * 52).round();
+            else if (_repaymentFrequency == 'Quotidienne') n = (durationInYears * 365).round();
+            else if (_repaymentFrequency == 'Annuelle') n = durationInYears.round();
+            if (n <= 0) n = 1;
 
-          for (int i = 1; i <= n; i++) {
-            DateTime nextDate = _selectedDate;
-            if (_repaymentFrequency == 'Mensuelle') nextDate = DateTime(_selectedDate.year, _selectedDate.month + i, _selectedDate.day);
-            else if (_repaymentFrequency == 'Hebdomadaire') nextDate = _selectedDate.add(Duration(days: 7 * i));
-            else if (_repaymentFrequency == 'Quotidienne') nextDate = _selectedDate.add(Duration(days: i));
-            else if (_repaymentFrequency == 'Annuelle') nextDate = DateTime(_selectedDate.year + i, _selectedDate.month, _selectedDate.day);
+            for (int i = 1; i <= n; i++) {
+              DateTime nextDate = _selectedDate;
+              if (_repaymentFrequency == 'Mensuelle') nextDate = DateTime(_selectedDate.year, _selectedDate.month + i, _selectedDate.day);
+              else if (_repaymentFrequency == 'Hebdomadaire') nextDate = _selectedDate.add(Duration(days: 7 * i));
+              else if (_repaymentFrequency == 'Quotidienne') nextDate = _selectedDate.add(Duration(days: i));
+              else if (_repaymentFrequency == 'Annuelle') nextDate = DateTime(_selectedDate.year + i, _selectedDate.month, _selectedDate.day);
 
-            await expenseProvider.addExpense(Expense(
-              id: const Uuid().v4(),
-              title: 'Échéance $i/$n',
-              amount: _installmentAmount,
-              category: 'Remboursement de dette',
-              date: nextDate,
-              type: 'expense',
-              debtTag: _selectedDebtTag,
-              debtorUserId: _selectedDebtorUserId,
-              isLinkedToCashFlow: false,
-              isPlanned: true,
-              creatorId: currentUserId,
-              creatorName: currentUserName,
-            ), executor: txn);
+              await expenseProvider.addExpense(Expense(
+                id: const Uuid().v4(),
+                title: 'Échéance $i/$n',
+                amount: _installmentAmount,
+                category: 'Remboursement de dette',
+                date: nextDate,
+                type: 'expense',
+                debtTag: _selectedDebtTag,
+                debtorUserId: _selectedDebtorUserId,
+                isLinkedToCashFlow: false,
+                isPlanned: true,
+                creatorId: currentUserId,
+                creatorName: currentUserName,
+              ), executor: txn);
+            }
+          }
+
+          if (_isLinkedToCashFlow && _selectedAccountId != null) {
+            await accountProvider.updateBalance(
+              _selectedAccountId!, 
+              _isIncome ? _amount : -_amount,
+              executor: txn,
+            );
+          }
+        });
+        
+        isSuccessLocally = true;
+        await SyncService().push();
+        
+        if (mounted) {
+          Navigator.pop(context); // Close loader
+          Navigator.pop(context, true); // Close screen
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // Close loader
+          
+          String errorMessage = "Une erreur s'est produite. Veuillez réessayer.";
+          String errorString = e.toString().toLowerCase();
+          bool isNetworkOrSyncError = errorString.contains('dioexception') || 
+                                      errorString.contains('socketexception') || 
+                                      errorString.contains('network') || 
+                                      errorString.contains('connexion') ||
+                                      errorString.contains('404');
+          
+          if (isSuccessLocally && isNetworkOrSyncError) {
+             errorMessage = "L'opération a été enregistrée sur votre téléphone. Elle sera synchronisée dès le retour de la connexion internet.";
+          } else {
+             errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('Erreur : ', '');
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(
+                    isNetworkOrSyncError ? Icons.cloud_off : Icons.warning_amber_rounded,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(errorMessage)),
+                ],
+              ),
+              backgroundColor: isNetworkOrSyncError ? Colors.blueGrey.shade700 : Colors.orange.shade800,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              margin: const EdgeInsets.all(16),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+
+          if (isSuccessLocally) {
+            Navigator.pop(context, true); // Close screen if successfully saved locally
           }
         }
-
-        if (_isLinkedToCashFlow && _selectedAccountId != null) {
-          await accountProvider.updateBalance(
-            _selectedAccountId!, 
-            _isIncome ? _amount : -_amount,
-            executor: txn,
-          );
-        }
-      });
-      
-      if (mounted) {
-        Navigator.pop(context);
       }
     }
   }
@@ -220,50 +297,15 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
     }
   }
 
-  Future<String?> _showAddDebtTagDialog() async {
-    final l10n = AppLocalizations.of(context)!;
-    String name = '';
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.addDebtTag),
-        content: TextFormField(
-          autofocus: true,
-          onChanged: (val) => name = val,
-          decoration: InputDecoration(labelText: l10n.debtTag),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
-          TextButton(
-            onPressed: () {
-              if (name.trim().isNotEmpty) {
-                final profile = Provider.of<ProfileProvider>(context, listen: false).profile;
-                final tagLower = name.trim().toLowerCase();
-                if (tagLower == '${profile.firstName} ${profile.lastName}'.trim().toLowerCase() ||
-                    (profile.firstName.isNotEmpty && tagLower == profile.firstName.trim().toLowerCase()) ||
-                    (profile.lastName.isNotEmpty && tagLower == profile.lastName.trim().toLowerCase())) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Vous ne pouvez pas vous ajouter vous-même.')),
-                  );
-                  return;
-                }
-                final provider = Provider.of<ExpenseProvider>(context, listen: false);
-                provider.addDebtTag(name.trim());
-                Navigator.pop(ctx, name.trim());
-              }
-            },
-            child: Text(l10n.save),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final expenseProvider = Provider.of<ExpenseProvider>(context);
-    final categories = _isIncome ? expenseProvider.incomeCategories : expenseProvider.expenseCategories;
+    final baseCategories = _isIncome ? expenseProvider.incomeCategories : expenseProvider.expenseCategories;
+    final categories = baseCategories.contains('Remboursement')
+        ? baseCategories
+        : ['Remboursement', ...baseCategories];
     final accounts = Provider.of<AccountProvider>(context).accounts;
     final currency = Provider.of<ProfileProvider>(context).profile.currency;
     final debtTags = expenseProvider.debtTags;
@@ -410,13 +452,27 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                 ],
                 onChanged: widget.initialTag != null ? null : (val) async {
                   if (val == '__add_new__') {
-                    final newTag = await _showAddDebtTagDialog();
-                    if (newTag != null) {
-                      setState(() {
-                        _selectedDebtTag = newTag;
-                        _selectedDebtorUserId = null;
-                      });
+                    final result = await AddContactBottomSheet.show(context);
+                    if (result != null) {
+                      if (result['mode'] == 'fimus' && result['contact'] != null) {
+                        final Contact contact = result['contact'];
+                        setState(() {
+                          _selectedDebtTag = contact.name;
+                          _selectedDebtorUserId = contact.id.toString();
+                        });
+                      } else if (result['mode'] == 'label') {
+                        final String label = result['value'];
+                        // Save the tag locally just in case it wasn't saved in the db
+                        final provider = Provider.of<ExpenseProvider>(context, listen: false);
+                        provider.addDebtTag(label);
+                        
+                        setState(() {
+                          _selectedDebtTag = label;
+                          _selectedDebtorUserId = result['contact']?.id?.toString();
+                        });
+                      }
                     }
+
                   } else if (val != null) {
                     if (val.startsWith('contact_')) {
                       final id = val.replaceFirst('contact_', '');
@@ -438,36 +494,42 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               ),
               const SizedBox(height: 16),
               
-              if (widget.initialTag == null) ...[
-                // Type Selection (Income vs Expense)
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment<bool>(
-                      value: false,
-                      label: Text('Créance (Vous devez percevoir)'),
-                    ),
-                    ButtonSegment<bool>(
-                      value: true,
-                      label: Text('Dette (Vous devez rembourser)'),
-                    ),
-                  ],
-                  selected: {_isIncome},
-                  onSelectionChanged: (Set<bool> newSelection) {
-                    setState(() {
-                      _isIncome = newSelection.first;
-                      if (!_isIncome) {
-                        _isCreditSimulation = false;
-                      }
-                      _recalculate();
-                      // Reset category when type changes
-                      if (_isLinkedToCashFlow) {
-                        _selectedCategory = null;
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
+              // Type Selection (Income vs Expense)
+              SegmentedButton<bool>(
+                segments: widget.initialTag != null
+                    ? const [
+                        ButtonSegment<bool>(
+                          value: true,
+                          label: Text('Encaisser (Entrée d\'argent)'),
+                        ),
+                        ButtonSegment<bool>(
+                          value: false,
+                          label: Text('Rembourser (Sortie d\'argent)'),
+                        ),
+                      ]
+                    : const [
+                        ButtonSegment<bool>(
+                          value: false,
+                          label: Text('Créance (Vous devez percevoir)'),
+                        ),
+                        ButtonSegment<bool>(
+                          value: true,
+                          label: Text('Dette (Vous devez rembourser)'),
+                        ),
+                      ],
+                selected: {_isIncome},
+                onSelectionChanged: (Set<bool> newSelection) {
+                  setState(() {
+                    _isIncome = newSelection.first;
+                    if (!_isIncome) {
+                      _isCreditSimulation = false;
+                    }
+                    _recalculate();
+                    _selectedCategory = 'Remboursement';
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
               
               TextFormField(
                 controller: _amountController,
@@ -522,7 +584,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 flex: 2,
                                 child: TextFormField(
                                   initialValue: _interestRate.toString(),
-                                  decoration: const InputDecoration(labelText: 'Taux d\'intérêt', suffixText: '%'),
+                                  decoration: InputDecoration(labelText: 'Taux d\'intérêt', suffixText: '%'),
                                   keyboardType: TextInputType.number,
                                   onChanged: (val) {
                                     _interestRate = double.tryParse(val) ?? 0.0;
@@ -535,7 +597,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 flex: 3,
                                 child: DropdownButtonFormField<String>(
                                   value: _interestPeriodicity,
-                                  decoration: const InputDecoration(labelText: 'Périodicité'),
+                                  decoration: InputDecoration(labelText: 'Périodicité'),
                                   items: ['Annuel', 'Mensuel'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                                   onChanged: (val) {
                                     setState(() {
@@ -554,7 +616,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 flex: 2,
                                 child: TextFormField(
                                   initialValue: _repaymentDuration.toString(),
-                                  decoration: const InputDecoration(labelText: 'Durée'),
+                                  decoration: InputDecoration(labelText: 'Durée'),
                                   keyboardType: TextInputType.number,
                                   onChanged: (val) {
                                     _repaymentDuration = int.tryParse(val) ?? 1;
@@ -567,7 +629,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 flex: 3,
                                 child: DropdownButtonFormField<String>(
                                   value: _durationUnit,
-                                  decoration: const InputDecoration(labelText: 'Unité'),
+                                  decoration: InputDecoration(labelText: 'Unité'),
                                   items: ['Mois', 'Années'].map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
                                   onChanged: (val) {
                                     setState(() {
@@ -582,7 +644,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                           const SizedBox(height: 16),
                           DropdownButtonFormField<String>(
                             value: _repaymentFrequency,
-                            decoration: const InputDecoration(labelText: 'Fréquence de remboursement'),
+                            decoration: InputDecoration(labelText: 'Fréquence de remboursement'),
                             items: ['Mensuelle', 'Hebdomadaire', 'Quotidienne', 'Annuelle'].map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
                             onChanged: (val) {
                               setState(() {
@@ -622,7 +684,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               
               const SizedBox(height: 24),
               
-              // Cash flow link toggle
+              // Cash flow / Account link toggle
               SwitchListTile(
                 title: Text(l10n.linkToCashFlow),
                 subtitle: Text(l10n.linkToCashFlowDescription),
@@ -630,18 +692,51 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                 onChanged: (val) {
                   setState(() {
                     _isLinkedToCashFlow = val;
+                    if (val) {
+                      _selectedCategory ??= 'Remboursement';
+                      if (_selectedAccountId == null && accounts.isNotEmpty) {
+                        _selectedAccountId = accounts.first.id;
+                      }
+                    }
                   });
                 },
               ),
               
               if (_isLinkedToCashFlow) ...[
                 const SizedBox(height: 16),
+                if (accounts.isNotEmpty)
+                  DropdownButtonFormField<String>(
+                    value: (accounts.any((a) => a.id == _selectedAccountId)) ? _selectedAccountId : null,
+                    decoration: InputDecoration(
+                      labelText: 'Compte concerné *',
+                      hintText: 'Sélectionner un compte',
+                    ),
+                    items: accounts.map((acc) => DropdownMenuItem(
+                      value: acc.id,
+                      child: Text(acc.name.isNotEmpty ? acc.name : 'Sans nom'),
+                    )).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedAccountId = val;
+                      });
+                    },
+                    validator: (val) => (val == null || val.isEmpty) ? 'Veuillez choisir un compte' : null,
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'Aucun compte disponible pour être lié.',
+                      style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
+                    ),
+                  ),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  value: (categories.contains(_selectedCategory)) ? _selectedCategory : 'Remboursement',
                   decoration: InputDecoration(labelText: l10n.category),
                   items: categories.map((cat) => DropdownMenuItem(
                     value: cat,
-                    child: Text(cat),
+                    child: Text(l10n.translateCategory(cat)),
                   )).toList(),
                   onChanged: (val) {
                     setState(() {
@@ -650,30 +745,6 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                   },
                   validator: (val) => val == null ? l10n.pleaseChooseCategory : null,
                 ),
-                const SizedBox(height: 16),
-                if (accounts.isNotEmpty)
-                  DropdownButtonFormField<String>(
-                    value: _selectedAccountId,
-                    decoration: InputDecoration(
-                      labelText: l10n.linkedAccountOptional,
-                      hintText: l10n.noAccount,
-                    ),
-                    items: [
-                      DropdownMenuItem<String>(
-                        value: null,
-                        child: Text(l10n.noAccount),
-                      ),
-                      ...accounts.map((acc) => DropdownMenuItem(
-                        value: acc.id,
-                        child: Text(acc.name),
-                      )).toList()
-                    ],
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedAccountId = val;
-                      });
-                    },
-                  ),
               ],
               const SizedBox(height: 16),
               ListTile(
@@ -699,7 +770,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               ),
               if (_addComment) ...[
                 TextFormField(
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Commentaire (optionnel)',
                     border: OutlineInputBorder(),
                   ),

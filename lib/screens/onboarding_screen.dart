@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/locale_provider.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/searchable_country_dropdown.dart';
 import 'login_screen.dart';
 
@@ -15,16 +16,28 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  final PageController _pageController = PageController();
   final _authService = AuthService();
+  
+  int _currentStep = 0;
   bool _isLoadingCountries = true;
   List<Map<String, dynamic>> _countries = [];
   int? _selectedCountryId;
+  String _selectedProfileType = 'particulier';
+  bool _isRequestingNotification = false;
+  bool _notificationHandled = false;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _fetchCountries();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchCountries() async {
@@ -47,6 +60,47 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  void _nextPage() {
+    if (_currentStep < 3) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _previousPage() {
+    if (_currentStep > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    setState(() => _isRequestingNotification = true);
+    try {
+      await NotificationService().requestPermission();
+    } catch (e) {
+      debugPrint("Error requesting notification permission in onboarding: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRequestingNotification = false;
+          _notificationHandled = true;
+        });
+        
+        // Auto advance to next step (Profile Choice) after short delay for optimal UX
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted && _currentStep == 2) {
+            _nextPage();
+          }
+        });
+      }
+    }
+  }
+
   Future<void> _finishOnboarding() async {
     if (_selectedCountryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,7 +113,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_onboarding', true);
     await prefs.setInt('selected_country_id', _selectedCountryId!);
-    
+    await prefs.setString('selected_profile_type', _selectedProfileType);
+
     if (mounted) {
       Navigator.pushReplacement(
         context,
@@ -78,123 +133,582 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              theme.colorScheme.primary.withValues(alpha: 0.05),
+              theme.colorScheme.primary.withValues(alpha: 0.06),
               theme.colorScheme.surface,
             ],
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.language_rounded,
-                  size: 80,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  l10n.onboardingWelcome,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 48),
-
-                // Step 1: Language
-                Text(
-                  l10n.onboardingStep1,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Row(
+          child: Column(
+            children: [
+              // Header avec Logo et Bouton Retour
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: _LanguageCard(
-                        title: 'Français',
-                        isSelected: localeProvider.locale.languageCode == 'fr',
-                        onTap: () => localeProvider.setLocale(const Locale('fr')),
-                      ),
+                    _currentStep > 0
+                        ? IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                            onPressed: _previousPage,
+                            tooltip: 'Retour',
+                          )
+                        : const SizedBox(width: 48),
+                    Image.asset(
+                      'assets/images/logo.png',
+                      height: 48,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _LanguageCard(
-                        title: 'English',
-                        isSelected: localeProvider.locale.languageCode == 'en',
-                        onTap: () => localeProvider.setLocale(const Locale('en')),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+
+              // Barre d'indicateur de progression (4 ÉTAPES)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: List.generate(4, (index) {
+                        final isCompleted = index < _currentStep;
+                        final isCurrent = index == _currentStep;
+                        return Expanded(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            height: 6,
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            decoration: BoxDecoration(
+                              color: isCurrent
+                                  ? theme.colorScheme.primary
+                                  : isCompleted
+                                      ? theme.colorScheme.primary.withValues(alpha: 0.4)
+                                      : Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Étape ${_currentStep + 1} sur 4',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
+              ),
 
-                // Step 2: Country
-                Text(
-                  l10n.onboardingStep2,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                _isLoadingCountries
-                    ? const Center(child: CircularProgressIndicator())
-                    : SearchableCountryDropdown<int>(
-                        countries: _countries,
-                        initialValue: _selectedCountryId,
-                        labelBuilder: (country) => country['name'] as String? ?? '',
-                        valueBuilder: (country) => country['id'] as int,
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.flag_outlined),
-                        ),
-                        hint: l10n.country,
-                        onChanged: (v) => setState(() => _selectedCountryId = v),
-                      ),
-                const Spacer(),
+              // Contenu principal dans PageView
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (page) => setState(() => _currentStep = page),
+                  children: [
+                    // PAGE 0: CHOIX DE LA LANGUE
+                    _buildLanguageStep(context, theme, l10n, localeProvider),
 
-                // Continue Button
-                ElevatedButton(
-                  onPressed: (_selectedCountryId == null || _isSaving) ? null : _finishOnboarding,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
-                  ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : Text(
-                          l10n.onboardingFinish.toUpperCase(),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
+                    // PAGE 1: SÉLECTION DU PAYS
+                    _buildCountryStep(context, theme, l10n),
+
+                    // PAGE 2: CONFIRMATION DÉDIÉE DES NOTIFICATIONS (Juste après le pays !)
+                    _buildNotificationStep(context, theme, l10n),
+
+                    // PAGE 3: CHOIX DU PROFIL & FINALISATION
+                    _buildProfileStep(context, theme, l10n),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  // --------------------------------------------------------------------------
+  // PAGE 0 : Choix de la Langue
+  // --------------------------------------------------------------------------
+  Widget _buildLanguageStep(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+    LocaleProvider localeProvider,
+  ) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 16),
+          Text(
+            l10n.onboardingWelcome,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l10n.onboardingStep1,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Row(
+            children: [
+              Expanded(
+                child: _OptionCard(
+                  title: 'Français',
+                  subtitle: 'Langue officielle',
+                  icon: Icons.language_rounded,
+                  isSelected: localeProvider.locale.languageCode == 'fr',
+                  onTap: () => localeProvider.setLocale(const Locale('fr')),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _OptionCard(
+                  title: 'English',
+                  subtitle: 'Default language',
+                  icon: Icons.language_rounded,
+                  isSelected: localeProvider.locale.languageCode == 'en',
+                  onTap: () => localeProvider.setLocale(const Locale('en')),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 60),
+          ElevatedButton(
+            onPressed: _nextPage,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              elevation: 2,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  l10n.onboardingContinue.toUpperCase(),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_rounded),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // PAGE 1 : Sélection du Pays
+  // --------------------------------------------------------------------------
+  Widget _buildCountryStep(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 16),
+          Text(
+            l10n.onboardingStep2,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'FIMUS adapte vos opérateurs et codes USSD en fonction de votre localisation.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 40),
+          _isLoadingCountries
+              ? const Center(child: CircularProgressIndicator())
+              : SearchableCountryDropdown<int>(
+                  countries: _countries,
+                  initialValue: _selectedCountryId,
+                  labelBuilder: (country) => country['name'] as String? ?? '',
+                  valueBuilder: (country) => country['id'] as int,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.flag_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  hint: l10n.country,
+                  onChanged: (v) => setState(() => _selectedCountryId = v),
+                ),
+          const SizedBox(height: 60),
+          ElevatedButton(
+            onPressed: _selectedCountryId == null ? null : _nextPage,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              elevation: 2,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  l10n.onboardingContinue.toUpperCase(),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_rounded),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // PAGE 2 : ÉCRAN DÉDIÉ CONFIRMATION DES NOTIFICATIONS (Juste après le Pays !)
+  // Design soigné et UX optimisée pour favoriser la validation par l'utilisateur
+  // --------------------------------------------------------------------------
+  Widget _buildNotificationStep(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Visual Hero avec Cloche animée
+          Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  ),
+                ),
+                Container(
+                  width: 85,
+                  height: 85,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.primary.withValues(alpha: 0.8),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.notifications_active_rounded,
+                    color: Colors.white,
+                    size: 44,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Titre principal clair & lisible
+          Text(
+            l10n.onboardingNotifHeader,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Sous-titre expliquant la valeur ajoutée
+          Text(
+            l10n.onboardingNotifSub,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Avantages clés (Checklist de bénéfices UX)
+          _BenefitTile(
+            icon: Icons.alarm_on_rounded,
+            iconColor: Colors.orange.shade700,
+            title: l10n.onboardingNotifBenefit1Title,
+            description: l10n.onboardingNotifBenefit1Desc,
+          ),
+          const SizedBox(height: 12),
+          _BenefitTile(
+            icon: Icons.groups_rounded,
+            iconColor: Colors.blue.shade700,
+            title: l10n.onboardingNotifBenefit2Title,
+            description: l10n.onboardingNotifBenefit2Desc,
+          ),
+          const SizedBox(height: 32),
+
+          // Action principale (Autoriser) favorisant la validation
+          _notificationHandled
+              ? Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.green.shade400, width: 1.5),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                      const SizedBox(width: 10),
+                      Text(
+                        l10n.onboardingNotificationsEnabled,
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ElevatedButton.icon(
+                  onPressed: _isRequestingNotification ? null : _requestNotificationPermission,
+                  icon: _isRequestingNotification
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Icon(Icons.notifications_active_rounded, size: 22),
+                  label: Text(
+                    l10n.onboardingEnableNotifications,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    elevation: 3,
+                  ),
+                ),
+          const SizedBox(height: 12),
+
+          // Option secondaire (Plus tard / Continuer)
+          TextButton(
+            onPressed: _nextPage,
+            child: Text(
+              _notificationHandled ? l10n.onboardingContinue : l10n.onboardingSkip,
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // PAGE 3 : Choix du Profil & Finalisation
+  // --------------------------------------------------------------------------
+  Widget _buildProfileStep(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 16),
+          Text(
+            l10n.onboardingStep3,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Sélectionnez votre type d\'utilisation pour adapter l\'interface.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            children: [
+              Expanded(
+                child: _OptionCard(
+                  title: 'Particulier',
+                  subtitle: 'Gestion personnelle',
+                  icon: Icons.person_outlined,
+                  isSelected: _selectedProfileType == 'particulier',
+                  onTap: () => setState(() => _selectedProfileType = 'particulier'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _OptionCard(
+                  title: 'Professionnel',
+                  subtitle: 'Petit Commerce',
+                  icon: Icons.business_center_outlined,
+                  isSelected: _selectedProfileType == 'professionnel',
+                  onTap: () => setState(() => _selectedProfileType = 'professionnel'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 60),
+          ElevatedButton(
+            onPressed: (_selectedCountryId == null || _isSaving) ? null : _finishOnboarding,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              elevation: 3,
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : Text(
+                    l10n.onboardingFinish.toUpperCase(),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _LanguageCard extends StatelessWidget {
+// --------------------------------------------------------------------------
+// Composant Carte d'Avantage UX (Benefits Checklist)
+// --------------------------------------------------------------------------
+class _BenefitTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
   final String title;
+  final String description;
+
+  const _BenefitTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14.0),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  description,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --------------------------------------------------------------------------
+// Composant Carte d'Option Sélectionnable
+// --------------------------------------------------------------------------
+class _OptionCard extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _LanguageCard({
+  const _OptionCard({
     required this.title,
+    this.subtitle,
+    required this.icon,
     required this.isSelected,
     required this.onTap,
   });
@@ -206,22 +720,52 @@ class _LanguageCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? theme.colorScheme.primary : Colors.grey.shade300,
             width: isSelected ? 2 : 1,
           ),
-          color: isSelected ? theme.colorScheme.primary.withValues(alpha: 0.1) : Colors.transparent,
+          color: isSelected ? theme.colorScheme.primary.withValues(alpha: 0.08) : theme.colorScheme.surface,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  )
+                ]
+              : null,
         ),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-          ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? theme.colorScheme.primary : Colors.grey.shade600,
+              size: 30,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 11,
+                ),
+              ),
+            ]
+          ],
         ),
       ),
     );
