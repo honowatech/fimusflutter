@@ -1,12 +1,15 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/locale_provider.dart';
 import '../services/auth_service.dart';
+import '../services/notification_permission_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/searchable_country_dropdown.dart';
 import 'login_screen.dart';
+import '../utils/app_theme.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -26,6 +29,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _selectedProfileType = 'particulier';
   bool _isRequestingNotification = false;
   bool _notificationHandled = false;
+  bool _notificationGranted = false;
   bool _isSaving = false;
 
   @override
@@ -48,12 +52,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         _isLoadingCountries = false;
       });
     } catch (e) {
+      // Détail technique gardé dans les logs, message générique à l'écran.
+      debugPrint('OnboardingScreen: chargement des pays impossible : $e');
       setState(() => _isLoadingCountries = false);
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur : $e'),
-            backgroundColor: Colors.orange,
+            content: Text(l10n.genericErrorRetry),
+            // Orange d'origine conserve en clair, jeton `warning` en sombre.
+            backgroundColor: Theme.of(context).colorScheme.tone(
+                  light: Colors.orange,
+                  dark: Theme.of(context).colorScheme.warning,
+                ),
           ),
         );
       }
@@ -80,23 +91,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _requestNotificationPermission() async {
     setState(() => _isRequestingNotification = true);
+    var granted = false;
     try {
-      await NotificationService().requestPermission();
+      final settings = await NotificationService().requestPermission();
+      granted = settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
     } catch (e) {
       debugPrint("Error requesting notification permission in onboarding: $e");
     } finally {
       if (mounted) {
+        context.read<NotificationPermissionService>().applyStatus(granted);
         setState(() {
           _isRequestingNotification = false;
           _notificationHandled = true;
+          _notificationGranted = granted;
         });
-        
-        // Auto advance to next step (Profile Choice) after short delay for optimal UX
-        Future.delayed(const Duration(milliseconds: 800), () {
-          if (mounted && _currentStep == 2) {
-            _nextPage();
-          }
-        });
+
+        if (granted) {
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted && _currentStep == 2) {
+              _nextPage();
+            }
+          });
+        }
       }
     }
   }
@@ -154,7 +171,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ? IconButton(
                             icon: const Icon(Icons.arrow_back_ios_new_rounded),
                             onPressed: _previousPage,
-                            tooltip: 'Retour',
+                            tooltip: l10n.back,
                           )
                         : const SizedBox(width: 48),
                     Image.asset(
@@ -185,7 +202,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   ? theme.colorScheme.primary
                                   : isCompleted
                                       ? theme.colorScheme.primary.withValues(alpha: 0.4)
-                                      : Colors.grey.shade300,
+                                      : theme.colorScheme.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -194,7 +211,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Étape ${_currentStep + 1} sur 4',
+                      l10n.onboardingStepProgress(_currentStep + 1, 4),
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
@@ -268,8 +285,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               Expanded(
                 child: _OptionCard(
-                  title: 'Français',
-                  subtitle: 'Langue officielle',
+                  title: l10n.french,
+                  subtitle: l10n.officialLanguage,
                   icon: Icons.language_rounded,
                   isSelected: localeProvider.locale.languageCode == 'fr',
                   onTap: () => localeProvider.setLocale(const Locale('fr')),
@@ -278,8 +295,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: _OptionCard(
-                  title: 'English',
-                  subtitle: 'Default language',
+                  title: l10n.english,
+                  subtitle: l10n.defaultLanguage,
                   icon: Icons.language_rounded,
                   isSelected: localeProvider.locale.languageCode == 'en',
                   onTap: () => localeProvider.setLocale(const Locale('en')),
@@ -338,7 +355,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'FIMUS adapte vos opérateurs et codes USSD en fonction de votre localisation.',
+            l10n.onboardingCountryHint,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -434,9 +451,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ],
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.notifications_active_rounded,
-                    color: Colors.white,
+                    // Pose sur le degrade `primary`.
+                    color: theme.colorScheme.onPrimary,
                     size: 44,
                   ),
                 ),
@@ -470,39 +488,116 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           // Avantages clés (Checklist de bénéfices UX)
           _BenefitTile(
             icon: Icons.alarm_on_rounded,
-            iconColor: Colors.orange.shade700,
+            iconColor: theme.colorScheme.tone(
+              light: Colors.orange.shade700,
+              dark: theme.colorScheme.warning,
+            ),
             title: l10n.onboardingNotifBenefit1Title,
             description: l10n.onboardingNotifBenefit1Desc,
           ),
           const SizedBox(height: 12),
           _BenefitTile(
             icon: Icons.groups_rounded,
-            iconColor: Colors.blue.shade700,
+            iconColor: theme.colorScheme.tone(
+              light: Colors.blue.shade700,
+              dark: theme.colorScheme.info,
+            ),
             title: l10n.onboardingNotifBenefit2Title,
             description: l10n.onboardingNotifBenefit2Desc,
           ),
           const SizedBox(height: 32),
 
-          // Action principale (Autoriser) favorisant la validation
-          _notificationHandled
+          // Action principale (Autoriser) — le succès n'est affiché que si
+          // le système a réellement accordé la permission.
+          _notificationHandled && _notificationGranted
               ? Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  // Cartouche de succes : verts d'origine en clair, jeton
+                  // `success` en sombre.
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.12),
+                    color: theme.colorScheme
+                        .tone(
+                          light: Colors.green,
+                          dark: theme.colorScheme.success,
+                        )
+                        .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.green.shade400, width: 1.5),
+                    border: Border.all(
+                      color: theme.colorScheme.tone(
+                        light: Colors.green.shade400,
+                        dark: theme.colorScheme.success,
+                      ),
+                      width: 1.5,
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: theme.colorScheme.tone(
+                          light: Colors.green,
+                          dark: theme.colorScheme.success,
+                        ),
+                        size: 24,
+                      ),
                       const SizedBox(width: 10),
                       Text(
                         l10n.onboardingNotificationsEnabled,
-                        style: const TextStyle(
-                          color: Colors.green,
+                        style: TextStyle(
+                          color: theme.colorScheme.tone(
+                            light: Colors.green,
+                            dark: theme.colorScheme.success,
+                          ),
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : _notificationHandled && !_notificationGranted
+              ? Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  // Cartouche d'avertissement : oranges d'origine en clair,
+                  // famille `warning*` en sombre.
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme
+                        .tone(
+                          light: Colors.orange,
+                          dark: theme.colorScheme.warning,
+                        )
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: theme.colorScheme.tone(
+                        light: Colors.orange.shade400,
+                        dark: theme.colorScheme.warning,
+                      ),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.notifications_off_rounded,
+                        // clair = Colors.orange.shade800
+                        color: theme.colorScheme.warning,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          l10n.onboardingNotificationsDenied,
+                          style: TextStyle(
+                            color: theme.colorScheme.tone(
+                              light: Colors.orange.shade900,
+                              dark: theme.colorScheme.warning,
+                            ),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ],
@@ -511,10 +606,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               : ElevatedButton.icon(
                   onPressed: _isRequestingNotification ? null : _requestNotificationPermission,
                   icon: _isRequestingNotification
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          child: CircularProgressIndicator(
+                            // Pose sur le bouton rempli en `primary`.
+                            color: theme.colorScheme.onPrimary,
+                            strokeWidth: 2.5,
+                          ),
                         )
                       : const Icon(Icons.notifications_active_rounded, size: 22),
                   label: Text(
@@ -572,37 +671,61 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Sélectionnez votre type d\'utilisation pour adapter l\'interface.',
+            l10n.onboardingProfileTypeHint,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           Row(
             children: [
               Expanded(
                 child: _OptionCard(
-                  title: 'Particulier',
-                  subtitle: 'Gestion personnelle',
-                  icon: Icons.person_outlined,
+                  title: l10n.profileTypePersonal,
+                  subtitle: l10n.personalManagement,
+                  icon: Icons.person_outline_rounded,
                   isSelected: _selectedProfileType == 'particulier',
                   onTap: () => setState(() => _selectedProfileType = 'particulier'),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: _OptionCard(
-                  title: 'Professionnel',
-                  subtitle: 'Petit Commerce',
-                  icon: Icons.business_center_outlined,
-                  isSelected: _selectedProfileType == 'professionnel',
-                  onTap: () => setState(() => _selectedProfileType = 'professionnel'),
+                  title: l10n.profileTypeSmallBusiness,
+                  subtitle: l10n.profileTypeSmallBusinessDesc,
+                  icon: Icons.storefront_outlined,
+                  isSelected: _selectedProfileType == 'petit_commerce',
+                  onTap: () => setState(() => _selectedProfileType = 'petit_commerce'),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 60),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _OptionCard(
+                  title: l10n.profileTypeCompany,
+                  subtitle: l10n.profileTypeCompanyDesc,
+                  icon: Icons.business_outlined,
+                  isSelected: _selectedProfileType == 'entreprise',
+                  onTap: () => setState(() => _selectedProfileType = 'entreprise'),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _OptionCard(
+                  title: l10n.profileTypeKiosk,
+                  subtitle: l10n.profileTypeKioskDesc,
+                  icon: Icons.point_of_sale_outlined,
+                  isSelected: _selectedProfileType == 'kiosque',
+                  onTap: () => setState(() => _selectedProfileType = 'kiosque'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 36),
           ElevatedButton(
             onPressed: (_selectedCountryId == null || _isSaving) ? null : _finishOnboarding,
             style: ElevatedButton.styleFrom(
@@ -613,10 +736,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               elevation: 3,
             ),
             child: _isSaving
-                ? const SizedBox(
+                ? SizedBox(
                     height: 24,
                     width: 24,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      // Pose sur le bouton rempli en `primary`.
+                      color: theme.colorScheme.onPrimary,
+                      strokeWidth: 2,
+                    ),
                   )
                 : Text(
                     l10n.onboardingFinish.toUpperCase(),
@@ -724,7 +851,9 @@ class _OptionCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? theme.colorScheme.primary : Colors.grey.shade300,
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
             width: isSelected ? 2 : 1,
           ),
           color: isSelected ? theme.colorScheme.primary.withValues(alpha: 0.08) : theme.colorScheme.surface,
@@ -742,7 +871,9 @@ class _OptionCard extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? theme.colorScheme.primary : Colors.grey.shade600,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
               size: 30,
             ),
             const SizedBox(height: 10),

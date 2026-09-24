@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.1.0+7
+version: 1.1.1+11
 
 environment:
   sdk: ^3.11.5
@@ -32,21 +32,32 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  intl: any
+  # Versions figées (sprint 5) : `any` rendait les builds non reproductibles —
+  # deux `pub get` à des dates différentes pouvaient résoudre des versions
+  # distinctes. Contraintes alignées sur ce que pubspec.lock résolvait déjà.
+  intl: ^0.20.3
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  # Conservé bien qu'aucun `CupertinoIcons.x` n'apparaisse dans lib/ : ce
+  # paquet fournit la police d'icônes que la bibliothèque Cupertino de Flutter
+  # référence elle-même (`package: cupertino_icons`). Le retirer ferait
+  # disparaître des glyphes dans les widgets iOS, pour un gain nul : Flutter
+  # élague déjà les glyphes inutilisés des polices d'icônes au build.
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.2
   provider: ^6.1.5+1
   permission_handler: ^11.4.0
-  flutter_phone_direct_caller: ^2.1.1
-  path_provider: ^2.1.5
-  flutter_native_contact_picker: ^0.0.12
-  mobile_scanner: ^5.2.3
+  flutter_phone_direct_caller:
+    path: third_party/flutter_phone_direct_caller
+  flutter_native_contact_picker:
+    path: third_party/flutter_native_contact_picker
+  mobile_scanner: ^7.4.0
   google_fonts: ^8.1.0
   sqflite: ^2.4.2+1
+  # Chiffrement de la base locale (constat E3) : même API que `sqflite`
+  # (mêmes types, issus de `sqflite_common`) avec un `password` à l'ouverture,
+  # servi par SQLCipher 4. Voir docs/chiffrement-base-locale.md.
+  sqflite_sqlcipher: ^3.4.1
   path: ^1.9.1
   uuid: ^4.5.3
   dio: ^5.10.0
@@ -57,14 +68,23 @@ dependencies:
   firebase_core: ^4.11.0
   firebase_messaging: ^16.4.1
   flutter_local_notifications: ^22.0.1
+  timezone: ^0.11.1
+  flutter_timezone: ^5.1.0
   crypto: ^3.0.3
-  safe_device: ^1.2.0
+  # Utilisé directement par lib/ (locale_provider, notification_preferences_provider)
+  # alors qu'il n'était tiré que transitivement : déclaration explicite.
+  http: ^1.6.0
+  safe_device:
+    path: third_party/safe_device
   google_sign_in: ^7.2.0
   flutter_native_splash: ^2.4.4
+  fl_chart: ^0.70.2
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  sqflite_common_ffi: ^2.4.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

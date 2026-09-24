@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/security_provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/notification_service.dart';
 import 'login_screen.dart';
 
 class LockScreen extends StatefulWidget {
@@ -15,6 +18,10 @@ class LockScreen extends StatefulWidget {
 class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateMixin {
   String _inputPin = '';
   bool _hasError = false;
+  bool _isVerifying = false;
+  bool _reauthDialogShown = false;
+  bool _wasLockedOut = false;
+  Timer? _lockoutTicker;
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
 
@@ -29,6 +36,26 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
         .chain(CurveTween(curve: Curves.elasticIn))
         .animate(_shakeController);
 
+    // Rafraîchit le compte à rebours du blocage une fois par seconde.
+    // On ne reconstruit que pendant un blocage actif, plus une fois au moment
+    // où il expire : inutile de faire tourner l'UI à 1 Hz le reste du temps.
+    _lockoutTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final securityProvider =
+          Provider.of<SecurityProvider>(context, listen: false);
+      final isLockedOut = securityProvider.isLockedOut;
+      if (isLockedOut) {
+        _wasLockedOut = true;
+        setState(() {});
+      } else if (_wasLockedOut) {
+        // Le blocage vient d'expirer : on redonne la main sans remettre le
+        // compteur cumulé d'échecs à zéro.
+        _wasLockedOut = false;
+        securityProvider.refreshLockoutState();
+        setState(() {});
+      }
+    });
+
     // Auto-trigger biometrics on launch if enabled
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _triggerBiometrics();
@@ -37,21 +64,42 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    _lockoutTicker?.cancel();
     _shakeController.dispose();
     super.dispose();
   }
 
   Future<void> _triggerBiometrics() async {
     final securityProvider = Provider.of<SecurityProvider>(context, listen: false);
-    if (securityProvider.isLockedOut) return;
-    if (securityProvider.isBiometricEnabled && securityProvider.isBiometricsAvailable) {
-      await securityProvider.authenticateWithBiometrics();
+    if (securityProvider.isLockedOut || securityProvider.requiresFullReauth) {
+      return;
     }
+    if (securityProvider.isBiometricEnabled && securityProvider.isBiometricsAvailable) {
+      final unlocked = await securityProvider.authenticateWithBiometrics();
+      if (unlocked) _consumePendingNotificationIntents();
+    }
+  }
+
+  /// Rejeu des intentions de notification mises en attente pendant que l'app
+  /// était verrouillée (tap de navigation, bouton « Confirmer » / « Annuler »).
+  ///
+  /// Le rejeu est différé : `_AuthGate` doit d'abord remplacer LockScreen par
+  /// MainScreen, sinon la navigation viserait un écran pas encore monté.
+  /// `MainScreen` relance le même rejeu à son montage, l'opération étant
+  /// idempotente (l'intention est retirée du stockage avant exécution).
+  void _consumePendingNotificationIntents() {
+    Future.delayed(const Duration(milliseconds: 400), () {
+      NotificationService().consumePendingOnLaunch();
+    });
   }
 
   void _onKeyPress(String digit) {
     final securityProvider = Provider.of<SecurityProvider>(context, listen: false);
-    if (securityProvider.isLockedOut) return;
+    if (securityProvider.isLockedOut ||
+        securityProvider.requiresFullReauth ||
+        _isVerifying) {
+      return;
+    }
 
     if (_hasError) {
       setState(() {
@@ -73,7 +121,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
 
   void _onDelete() {
     final securityProvider = Provider.of<SecurityProvider>(context, listen: false);
-    if (securityProvider.isLockedOut) return;
+    if (securityProvider.isLockedOut || _isVerifying) return;
 
     if (_inputPin.isNotEmpty) {
       setState(() {
@@ -85,14 +133,98 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
 
   Future<void> _verifyPin() async {
     final securityProvider = Provider.of<SecurityProvider>(context, listen: false);
+
+    // La dérivation PBKDF2 prend quelques centaines de millisecondes (isolate) :
+    // on neutralise le clavier pendant la vérification pour éviter les doubles
+    // saisies et les compteurs d'échecs incrémentés deux fois.
+    setState(() => _isVerifying = true);
     final success = await securityProvider.authenticateWithPin(_inputPin);
-    
-    if (!success) {
-      setState(() {
-        _hasError = true;
-      });
-      _shakeController.forward(from: 0.0);
+    if (!mounted) return;
+    setState(() => _isVerifying = false);
+
+    if (success) {
+      _consumePendingNotificationIntents();
+      return;
     }
+
+    setState(() {
+      _hasError = true;
+    });
+    _shakeController.forward(from: 0.0);
+  }
+
+  /// Message d'état affiché sous le logo : compte à rebours du blocage ou
+  /// essais restants avant le prochain palier, sans divulguer le compteur
+  /// cumulé ni le seuil de déconnexion forcée.
+  String _statusMessage(
+    AppLocalizations l10n,
+    SecurityProvider securityProvider,
+  ) {
+    if (securityProvider.requiresFullReauth) {
+      return l10n.lockTooManyAttemptsReauth;
+    }
+    if (securityProvider.isLockedOut) {
+      return l10n.lockTooManyAttemptsRetryIn(
+          _formatRemaining(securityProvider.remainingLockout));
+    }
+    if (_isVerifying) return l10n.verifying;
+    if (_hasError) {
+      final remaining = securityProvider.remainingAttemptsBeforeLockout;
+      return remaining <= 2
+          ? l10n.lockIncorrectPinAttemptsLeft(remaining)
+          : l10n.incorrectPinCode;
+    }
+    return l10n.enterYourPin;
+  }
+
+  String _formatRemaining(Duration remaining) {
+    final total = remaining.inSeconds < 0 ? 0 : remaining.inSeconds;
+    final hours = total ~/ 3600;
+    final minutes = (total % 3600) ~/ 60;
+    final seconds = total % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes.toString().padLeft(2, '0')}min';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  /// Seuil d'échecs atteint : le PIN ne suffit plus, on impose une
+  /// réauthentification complète. Les données locales sont conservées.
+  void _promptFullReauth() {
+    final l10n = AppLocalizations.of(context)!;
+    if (_reauthDialogShown) return;
+    _reauthDialogShown = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text(l10n.securityTitle),
+          content: Text(l10n.lockFullReauthBody),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _logoutAndReturnToLogin();
+              },
+              child: Text(l10n.reconnectAction),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _logoutAndReturnToLogin() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.logout(context: context);
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   void _forgotPin() {
@@ -101,9 +233,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l10n.forgotPassword),
-        content: const Text(
-          'Pour des raisons de sécurité, si vous avez oublié votre code PIN, vous devez vous déconnecter et vous reconnecter. Vos données locales synchronisées seront préservées.',
-        ),
+        content: Text(l10n.lockForgotPinBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -112,17 +242,12 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
-              await authProvider.logout();
-              if (mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
+              await _logoutAndReturnToLogin();
             },
-            child: Text(l10n.logout, style: TextStyle(color: Colors.red)),
+            child: Text(
+              l10n.logout,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         ],
       ),
@@ -134,6 +259,15 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final securityProvider = Provider.of<SecurityProvider>(context);
+    final isBlocked =
+        securityProvider.isLockedOut || securityProvider.requiresFullReauth;
+    final canType = !isBlocked && !_isVerifying;
+
+    if (securityProvider.requiresFullReauth) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _promptFullReauth();
+      });
+    }
 
     return Scaffold(
       body: Container(
@@ -168,7 +302,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'FIMUS',
+                    l10n.appTitle,
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.primary,
@@ -176,14 +310,20 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    securityProvider.isLockedOut
-                        ? 'Trop de tentatives. Réessayez plus tard.'
-                        : _hasError ? 'Code PIN incorrect' : 'Saisissez votre code PIN',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: (securityProvider.isLockedOut || _hasError) ? theme.colorScheme.error : theme.colorScheme.onSurfaceVariant,
-                      fontWeight: (securityProvider.isLockedOut || _hasError) ? FontWeight.bold : FontWeight.normal,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      _statusMessage(l10n, securityProvider),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: (isBlocked || _hasError)
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.onSurfaceVariant,
+                        fontWeight: (isBlocked || _hasError)
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
                     ),
                   ),
                 ],
@@ -236,27 +376,27 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildKey('1'),
-                        _buildKey('2'),
-                        _buildKey('3'),
+                        _buildKey('1', enabled: canType),
+                        _buildKey('2', enabled: canType),
+                        _buildKey('3', enabled: canType),
                       ],
                     ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildKey('4'),
-                        _buildKey('5'),
-                        _buildKey('6'),
+                        _buildKey('4', enabled: canType),
+                        _buildKey('5', enabled: canType),
+                        _buildKey('6', enabled: canType),
                       ],
                     ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildKey('7'),
-                        _buildKey('8'),
-                        _buildKey('9'),
+                        _buildKey('7', enabled: canType),
+                        _buildKey('8', enabled: canType),
+                        _buildKey('9', enabled: canType),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -269,12 +409,14 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                                 Icons.fingerprint_rounded,
                                 _triggerBiometrics,
                                 color: theme.colorScheme.primary,
+                                enabled: canType,
                               )
                             : const SizedBox(width: 70, height: 70),
-                        _buildKey('0'),
+                        _buildKey('0', enabled: canType),
                         _buildIconButton(
                           Icons.backspace_outlined,
                           _onDelete,
+                          enabled: canType,
                         ),
                       ],
                     ),
@@ -300,13 +442,13 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildKey(String digit) {
+  Widget _buildKey(String digit, {bool enabled = true}) {
     final theme = Theme.of(context);
     return SizedBox(
       width: 75,
       height: 75,
       child: OutlinedButton(
-        onPressed: () => _onKeyPress(digit),
+        onPressed: enabled ? () => _onKeyPress(digit) : null,
         style: OutlinedButton.styleFrom(
           shape: const CircleBorder(),
           side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -325,13 +467,18 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildIconButton(IconData icon, VoidCallback onPressed, {Color? color}) {
+  Widget _buildIconButton(
+    IconData icon,
+    VoidCallback onPressed, {
+    Color? color,
+    bool enabled = true,
+  }) {
     final theme = Theme.of(context);
     return SizedBox(
       width: 75,
       height: 75,
       child: IconButton(
-        onPressed: onPressed,
+        onPressed: enabled ? onPressed : null,
         icon: Icon(
           icon,
           size: 28,

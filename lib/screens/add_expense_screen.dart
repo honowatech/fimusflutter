@@ -6,16 +6,24 @@ import '../providers/account_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/formatters.dart';
-import '../utils/translation_helper.dart';
 import '../models/expense.dart';
 import '../services/database_service.dart';
+import '../widgets/category_form_field.dart';
 import 'package:uuid/uuid.dart';
+import 'expense_screen.dart';
+import 'main_screen.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final bool isIncome;
   final String? initialAccountId;
+  final Expense? expenseToEdit;
   
-  const AddExpenseScreen({super.key, this.isIncome = false, this.initialAccountId});
+  const AddExpenseScreen({
+    super.key,
+    this.isIncome = false,
+    this.initialAccountId,
+    this.expenseToEdit,
+  });
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -29,10 +37,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _selectedAccountId;
   DateTime _selectedDate = DateTime.now();
 
+  bool get _isEditing => widget.expenseToEdit != null;
+  bool get _isIncome => _isEditing ? (widget.expenseToEdit!.type == 'income') : widget.isIncome;
+
   @override
   void initState() {
     super.initState();
-    _selectedAccountId = widget.initialAccountId;
+    if (_isEditing) {
+      final exp = widget.expenseToEdit!;
+      _title = exp.title;
+      _amount = exp.amount;
+      _selectedCategory = exp.category;
+      _selectedAccountId = exp.accountId;
+      _selectedDate = exp.date;
+    } else {
+      _selectedAccountId = widget.initialAccountId;
+    }
   }
 
   Future<void> _save() async {
@@ -42,36 +62,86 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
       final accountProvider = Provider.of<AccountProvider>(context, listen: false);
       
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
-      final currentUserId = authProvider.user?['id']?.toString() ?? authProvider.user?['uuid']?.toString();
-      final currentUserName = '${profileProvider.profile.firstName} ${profileProvider.profile.lastName}'.trim();
+      if (_isEditing) {
+        final original = widget.expenseToEdit!;
+        final updatedExpense = original.copyWith(
+          title: _title,
+          amount: _amount,
+          category: _selectedCategory ?? 'Autre',
+          date: _selectedDate,
+          type: _isIncome ? 'income' : 'expense',
+          accountId: _selectedAccountId,
+          updatedAt: DateTime.now(),
+        );
 
-      final expense = Expense(
-        id: const Uuid().v4(),
-        title: _title,
-        amount: _amount,
-        category: _selectedCategory ?? 'Autre',
-        date: _selectedDate,
-        type: widget.isIncome ? 'income' : 'expense',
-        accountId: _selectedAccountId,
-        creatorId: currentUserId,
-        creatorName: currentUserName.isNotEmpty ? currentUserName : null,
-      );
+        await DatabaseService.instance.runTransaction((txn) async {
+          await expenseProvider.updateExpense(updatedExpense, executor: txn);
 
-      await DatabaseService.instance.runTransaction((txn) async {
-        await expenseProvider.addExpense(expense, executor: txn);
-        if (_selectedAccountId != null) {
-          await accountProvider.updateBalance(
-            _selectedAccountId!, 
-            widget.isIncome ? _amount : -_amount,
-            executor: txn,
-          );
-        }
-      });
+          final oldAccountId = original.accountId;
+          final oldAmount = original.amount;
+          final oldIsIncome = original.type == 'income';
+
+          final newAccountId = _selectedAccountId;
+          final newAmount = _amount;
+          final newIsIncome = _isIncome;
+
+          if (oldAccountId == newAccountId) {
+            if (oldAccountId != null) {
+              final oldContribution = oldIsIncome ? oldAmount : -oldAmount;
+              final newContribution = newIsIncome ? newAmount : -newAmount;
+              final delta = newContribution - oldContribution;
+              if (delta != 0) {
+                await accountProvider.updateBalance(oldAccountId, delta, executor: txn);
+              }
+            }
+          } else {
+            if (oldAccountId != null) {
+              final revertDelta = oldIsIncome ? -oldAmount : oldAmount;
+              await accountProvider.updateBalance(oldAccountId, revertDelta, executor: txn);
+            }
+            if (newAccountId != null) {
+              final applyDelta = newIsIncome ? newAmount : -newAmount;
+              await accountProvider.updateBalance(newAccountId, applyDelta, executor: txn);
+            }
+          }
+        });
+      } else {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+        final currentUserId = authProvider.user?['id']?.toString() ?? authProvider.user?['uuid']?.toString();
+        final currentUserName = '${profileProvider.profile.firstName} ${profileProvider.profile.lastName}'.trim();
+
+        final expense = Expense(
+          id: const Uuid().v4(),
+          title: _title,
+          amount: _amount,
+          category: _selectedCategory ?? 'Autre',
+          date: _selectedDate,
+          type: _isIncome ? 'income' : 'expense',
+          accountId: _selectedAccountId,
+          creatorId: currentUserId,
+          creatorName: currentUserName.isNotEmpty ? currentUserName : null,
+          createdAt: DateTime.now(),
+        );
+
+        await DatabaseService.instance.runTransaction((txn) async {
+          await expenseProvider.addExpense(expense, executor: txn);
+          if (_selectedAccountId != null) {
+            await accountProvider.updateBalance(
+              _selectedAccountId!, 
+              _isIncome ? _amount : -_amount,
+              executor: txn,
+            );
+          }
+        });
+      }
       
       if (mounted) {
         Navigator.pop(context);
+        if (!_isEditing) {
+          MainScreen.globalKey.currentState?.setSelectedIndex(1);
+          ExpenseScreen.navigateToTab(1);
+        }
       }
     }
   }
@@ -90,46 +160,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  Future<String?> _showAddCategoryDialog() async {
-    final l10n = AppLocalizations.of(context)!;
-    String name = '';
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(widget.isIncome ? l10n.addIncomeCategory : l10n.addExpenseCategory),
-        content: TextFormField(
-          autofocus: true,
-          onChanged: (val) => name = val,
-          decoration: InputDecoration(labelText: l10n.categoryName),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
-          TextButton(
-            onPressed: () {
-              if (name.trim().isNotEmpty) {
-                final provider = Provider.of<ExpenseProvider>(context, listen: false);
-                provider.addCategory(name.trim(), isIncome: widget.isIncome);
-                Navigator.pop(ctx, name.trim());
-              }
-            },
-            child: Text(l10n.save),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final categories = widget.isIncome
+    final categories = _isIncome
         ? Provider.of<ExpenseProvider>(context).incomeCategories
         : Provider.of<ExpenseProvider>(context).expenseCategories;
     final accounts = Provider.of<AccountProvider>(context).accounts;
     final currency = Provider.of<ProfileProvider>(context).profile.currency;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isIncome ? l10n.addIncome : l10n.addExpense)),
+      appBar: AppBar(
+        title: Text(
+          _isEditing
+              ? (_isIncome ? l10n.editIncome : l10n.editExpense)
+              : (_isIncome ? l10n.addIncome : l10n.addExpense),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -138,13 +185,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
-                autofocus: true,
+                initialValue: _title,
+                autofocus: !_isEditing,
                 decoration: InputDecoration(labelText: l10n.title),
                 validator: (val) => val == null || val.isEmpty ? l10n.required : null,
                 onSaved: (val) => _title = val!.trim(),
               ),
               const SizedBox(height: 16),
               TextFormField(
+                initialValue: _amount > 0 ? (_amount % 1 == 0 ? _amount.toInt().toString() : _amount.toString()) : '',
                 decoration: InputDecoration(labelText: l10n.amount, prefixText: '$currency '),
                 keyboardType: TextInputType.number,
                 inputFormatters: [AmountInputFormatter()],
@@ -156,44 +205,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 onSaved: (val) => _amount = double.parse(val!.replaceAll(RegExp(r'\s+'), '').replaceAll(',', '.')),
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                decoration: InputDecoration(labelText: l10n.category),
-                items: [
-                  ...categories.map((cat) => DropdownMenuItem(
-                    value: cat,
-                    child: Text(l10n.translateCategory(cat)),
-                  )).toList(),
-                  DropdownMenuItem(
-                    value: '__add_new__',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.add, size: 18),
-                        const SizedBox(width: 8),
-                        Text(l10n.addNew),
-                      ],
-                    ),
-                  ),
-                ],
-                onChanged: (val) async {
-                  if (val == '__add_new__') {
-                    final newCategory = await _showAddCategoryDialog();
-                    if (newCategory != null) {
-                      setState(() {
-                        _selectedCategory = newCategory;
-                      });
-                    } else {
-                      setState(() {
-                        _selectedCategory = categories.contains(_selectedCategory) ? _selectedCategory : null;
-                      });
-                    }
-                  } else {
-                    setState(() {
-                      _selectedCategory = val;
-                    });
-                  }
-                },
-                validator: (val) => (val == null || val == '__add_new__') ? l10n.pleaseChooseCategory : null,
+              CategoryFormField(
+                categories: categories,
+                initialValue: _selectedCategory,
+                labelText: l10n.category,
+                isIncome: _isIncome,
+                validator: (val) => (val == null || val.trim().isEmpty)
+                    ? l10n.pleaseChooseCategory
+                    : null,
+                onChanged: (val) => setState(() => _selectedCategory = val),
+                onSaved: (val) => _selectedCategory = val,
               ),
               const SizedBox(height: 16),
               if (accounts.isNotEmpty)
@@ -210,7 +231,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ),
                     ...accounts.map((acc) => DropdownMenuItem(
                       value: acc.id,
-                      child: Text(acc.name.isNotEmpty ? acc.name : 'Sans nom'),
+                      child: Text(acc.name.isNotEmpty ? acc.name : l10n.untitled),
                     )).toList()
                   ],
                   onChanged: (val) {
@@ -226,7 +247,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 trailing: const Icon(Icons.calendar_today),
                 onTap: _pickDate,
                 shape: RoundedRectangleBorder(
-                  side: BorderSide(color: Colors.grey.shade400),
+                  side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
@@ -235,15 +256,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 onPressed: _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: const Icon(Icons.save),
+                icon: Icon(_isEditing ? Icons.check : Icons.save),
                 label: Text(
-                  widget.isIncome ? l10n.saveIncome : l10n.saveExpense,
+                  _isEditing
+                      ? l10n.modify
+                      : (_isIncome ? l10n.saveIncome : l10n.saveExpense),
                   style: const TextStyle(fontSize: 18),
                 ),
               ),

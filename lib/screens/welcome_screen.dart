@@ -1,15 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:monitrack/l10n/app_localizations.dart';
 import 'onboarding_screen.dart';
+import '../utils/app_theme.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Ecran illustre : `logo_splash.png` est une image opaque a fond sombre.
+      // On garde le blanc historique en clair (continuite avec le splash natif)
+      // et on bascule sur `surface` en sombre, ou un fond blanc jurerait avec
+      // le visuel. Le seul texte de l'ecran est le bouton, qui force deja
+      // primary/onPrimary ci-dessous.
+      backgroundColor: theme.colorScheme.tone(
+        light: Colors.white,
+        dark: theme.colorScheme.surface,
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -40,9 +51,9 @@ class WelcomeScreen extends StatelessWidget {
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: theme.colorScheme.onPrimary,
                   ),
-                  child: const Text(
-                    "DÉMARRER",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+                  child: Text(
+                    l10n.startAction,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
                   ),
                 ),
               ),

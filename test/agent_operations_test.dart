@@ -16,16 +16,16 @@ void main() {
       expect(p2.isParticulier, isTrue);
     });
 
-    test('Professional profile correctly identified as professionnel', () {
-      final p1 = UserProfile(firstName: 'Agent', lastName: 'Pro', type: 'professional');
-      final p2 = UserProfile(firstName: 'Agent', lastName: 'MoMo', type: 'professionnel');
-      final p3 = UserProfile(firstName: 'Agent', lastName: 'Kiosk', type: 'agent');
+    test('Kiosque and agent profile correctly identified as having agent access', () {
+      final p1 = UserProfile(firstName: 'Agent', lastName: 'Kiosk', type: 'kiosque');
+      final p2 = UserProfile(firstName: 'Agent', lastName: 'MoMo', type: 'agent');
+      final p3 = UserProfile(firstName: 'Agent', lastName: 'Transfert', type: 'transfert');
 
-      expect(p1.isProfessionnel, isTrue);
+      expect(p1.hasUssdAgent, isTrue);
       expect(p1.isParticulier, isFalse);
 
-      expect(p2.isProfessionnel, isTrue);
-      expect(p3.isProfessionnel, isTrue);
+      expect(p2.hasUssdAgent, isTrue);
+      expect(p3.hasUssdAgent, isTrue);
     });
   });
 
@@ -127,8 +127,8 @@ void main() {
       expect(filteredOps.map((op) => op.name), isNot(contains('Retrait client (Cash-Out Agent)')));
     });
 
-    test('Keeps all operations for professional (Agent) user mode', () {
-      final profile = UserProfile(firstName: 'Bob', lastName: 'Agent', type: 'professional');
+    test('Keeps all operations for Kiosque (Agent) user mode', () {
+      final profile = UserProfile(firstName: 'Bob', lastName: 'Agent', type: 'kiosque');
       final allOps = [
         UssdOperation(id: '1', name: 'Dépôt d\'argent (Cash-In Agent)', provider: 'mtn', defaultTemplate: '*126*2*{phone}*{amount}#'),
         UssdOperation(id: '2', name: 'Transfert d\'argent', provider: 'mtn', defaultTemplate: '*126*1*1*{phone}*{amount}#'),
@@ -136,7 +136,7 @@ void main() {
         UssdOperation(id: '4', name: 'Paiement marchand', provider: 'mtn', defaultTemplate: '*126*4*{merchant_code}*{amount}#'),
       ];
 
-      final filteredOps = profile.isProfessionnel
+      final filteredOps = profile.hasUssdAgent
           ? allOps
           : allOps.where((op) => !op.isAgentOperation).toList();
 

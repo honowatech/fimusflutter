@@ -70,7 +70,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       Icons.access_time,
                       color: _sortBy == HistorySortType.date
                           ? Theme.of(context).colorScheme.primary
-                          : Colors.grey,
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 8),
                     Text(l10n.sortByDate),
@@ -85,7 +85,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       Icons.sim_card,
                       color: _sortBy == HistorySortType.operator
                           ? Theme.of(context).colorScheme.primary
-                          : Colors.grey,
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 8),
                     Text(l10n.sortByOperator),
@@ -112,7 +112,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         });
                         Navigator.pop(ctx);
                       },
-                      child: Text(l10n.clearLabel, style: const TextStyle(color: Colors.red)),
+                      child: Text(
+                        l10n.clearLabel,
+                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      ),
                     ),
                   ],
                 ),
@@ -164,10 +167,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         key: Key(entry.id),
                         direction: DismissDirection.endToStart,
                         background: Container(
-                          color: Colors.red,
+                          color: Theme.of(context).colorScheme.error,
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: const Icon(Icons.delete, color: Colors.white),
+                          child: Icon(
+                            Icons.delete,
+                            color: Theme.of(context).colorScheme.onError,
+                          ),
                         ),
                         confirmDismiss: (direction) async {
                           return await showDialog<bool>(
@@ -182,7 +188,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, true),
-                                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Theme.of(context).colorScheme.error,
+                                  ),
                                   child: Text(l10n.delete),
                                 ),
                               ],
@@ -210,7 +218,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       historyProvider.removeHistoryEntry(entry.id);
                                       Navigator.pop(ctx);
                                     },
-                                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Theme.of(context).colorScheme.error,
+                                    ),
                                     child: Text(l10n.delete),
                                   ),
                                 ],

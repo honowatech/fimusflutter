@@ -3,6 +3,7 @@ class Contact {
   final String name;
   final String email;
   final String userCode;
+  final String pseudo;
   final String? alias;
 
   Contact({
@@ -10,6 +11,7 @@ class Contact {
     required this.name,
     required this.email,
     required this.userCode,
+    this.pseudo = '',
     this.alias,
   });
 
@@ -21,6 +23,7 @@ class Contact {
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       userCode: json['user_code'] ?? '',
+      pseudo: json['pseudo'] ?? '',
       alias: json['pivot'] != null ? json['pivot']['alias'] : null,
     );
   }
@@ -31,6 +34,7 @@ class Contact {
       'name': name,
       'email': email,
       'user_code': userCode,
+      'pseudo': pseudo,
       'alias': alias,
     };
   }

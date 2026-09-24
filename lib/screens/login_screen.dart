@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -9,14 +8,36 @@ import '../services/auth_service.dart';
 import '../widgets/searchable_country_dropdown.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
 import 'register_screen.dart';
-import 'main_screen.dart';
-import 'complete_profile_screen.dart';
+import '../utils/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  /// Mode « Ajouter un compte » (multicompte) : ouvert depuis le profil
+  /// pendant qu'un compte est déjà connecté. La connexion réussie ajoute
+  /// une session et bascule dessus sans déconnecter l'autre compte.
+  final bool addAccountMode;
+
+  const LoginScreen({super.key, this.addAccountMode = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
+}
+
+/// Fonds de SnackBar : la teinte claire d'origine est conservee telle quelle,
+/// la variante sombre passe par le jeton semantique (les `Colors.*` bruts sont
+/// trop satures/sombres sur un theme sombre).
+Color _snackError(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return cs.tone(light: Colors.red, dark: cs.error);
+}
+
+Color _snackWarning(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return cs.tone(light: Colors.orange, dark: cs.warning);
+}
+
+Color _snackSuccess(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return cs.tone(light: Colors.green, dark: cs.success);
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -25,11 +46,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  String _generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-    final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
-  }
 
   String _sanitizePseudo(String input) {
     const withAccents    = 'àáâãäåèéêëìíîïòóôõöùúûüçñýÿÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÇÑÝ';
@@ -119,6 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
+      // Transparent volontaire : la feuille dessine son propre fond arrondi.
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         final l10n = AppLocalizations.of(context)!;
@@ -147,7 +164,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 left: 24,
                 right: 24,
                 top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom +
+                    MediaQuery.of(context).padding.bottom +
+                    24,
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -159,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
+                          color: theme.colorScheme.outlineVariant,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -209,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (suggestions.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Text(
-                        'Propositions :',
+                        l10n.suggestionsLabel,
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.primary,
@@ -267,11 +286,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 border: Border.all(
                                   color: selectedType == 'particulier'
                                       ? theme.colorScheme.primary
-                                      : Colors.grey.shade300,
+                                      : theme.colorScheme.outlineVariant,
                                   width: selectedType == 'particulier' ? 2 : 1,
                                 ),
                                 color: selectedType == 'particulier'
                                     ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                                    // Non selectionne : aucun fond (transparent
+                                    // volontaire, la bordure suffit).
                                     : Colors.transparent,
                               ),
                               child: Column(
@@ -280,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Icons.person_rounded,
                                     color: selectedType == 'particulier'
                                         ? theme.colorScheme.primary
-                                        : Colors.grey.shade500,
+                                        : theme.colorScheme.onSurfaceVariant,
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -313,11 +334,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 border: Border.all(
                                   color: selectedType == 'professionnel'
                                       ? theme.colorScheme.primary
-                                      : Colors.grey.shade300,
+                                      : theme.colorScheme.outlineVariant,
                                   width: selectedType == 'professionnel' ? 2 : 1,
                                 ),
                                 color: selectedType == 'professionnel'
                                     ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                                    // Non selectionne : aucun fond (transparent
+                                    // volontaire, la bordure suffit).
                                     : Colors.transparent,
                               ),
                               child: Column(
@@ -326,11 +349,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Icons.business_rounded,
                                     color: selectedType == 'professionnel'
                                         ? theme.colorScheme.primary
-                                        : Colors.grey.shade500,
+                                        : theme.colorScheme.onSurfaceVariant,
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Professionnel',
+                                    l10n.professionalProfile,
                                     style: TextStyle(
                                       fontWeight: selectedType == 'professionnel'
                                           ? FontWeight.bold
@@ -350,7 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     Text(
-                      'Pays de résidence',
+                      l10n.countryOfResidence,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -366,7 +389,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             initialValue: selectedCountryId,
                             labelBuilder: (country) => country['name'] as String? ?? '',
                             valueBuilder: (country) => country['id'] as int,
-                            hint: 'Sélectionnez votre pays',
+                            hint: l10n.selectCountry,
                             decoration: const InputDecoration(
                               prefixIcon: Icon(Icons.flag_outlined),
                             ),
@@ -414,9 +437,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         backgroundColor: theme.colorScheme.primary,
                         foregroundColor: theme.colorScheme.onPrimary,
                       ),
-                      child: const Text(
-                        'CONFIRMER ET S\'INSCRIRE',
-                        style: TextStyle(
+                      child: Text(
+                        l10n.confirmAndRegister,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
@@ -435,15 +458,31 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loginWithGoogle() async {
     setState(() => _isLoading = true);
-    
+
+    final l10n = AppLocalizations.of(context)!;
     final bool isIos = Theme.of(context).platform == TargetPlatform.iOS;
-    final String rawNonce = _generateNonce();
     final googleSignIn = GoogleSignIn.instance;
-    await googleSignIn.initialize(
-      clientId: isIos ? '60857387958-c37ds66bcu99ejio7gp801lcomg4b38j.apps.googleusercontent.com' : null,
-      serverClientId: '60857387958-er15r76tt09pkco2fo5i3q6ti1c6pp9q.apps.googleusercontent.com',
-      nonce: rawNonce,
-    );
+    try {
+      await googleSignIn.initialize(
+        clientId: isIos ? '60857387958-c37ds66bcu99ejio7gp801lcomg4b38j.apps.googleusercontent.com' : null,
+        serverClientId: '60857387958-er15r76tt09pkco2fo5i3q6ti1c6pp9q.apps.googleusercontent.com',
+      );
+    } catch (e) {
+      // initialize() est la seule étape hors du try/catch principal : sans
+      // cette protection, une exception ici laissait le bouton bloqué en
+      // chargement sans aucun message.
+      debugPrint('LoginScreen: initialisation Google Sign-In impossible : $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.googleSignInGenericError),
+            backgroundColor: _snackError(context),
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
 
     try {
       final GoogleSignInAccount googleUser;
@@ -463,26 +502,30 @@ class _LoginScreenState extends State<LoginScreen> {
         String errorMessage;
         switch (e.code) {
           case GoogleSignInExceptionCode.interrupted:
-            errorMessage = "Connexion interrompue, réessayez.";
+            errorMessage = l10n.googleSignInInterrupted;
             break;
           case GoogleSignInExceptionCode.uiUnavailable:
-            errorMessage = "Aucun compte Google trouvé. Ajoutez-en un ou utilisez email/mot de passe.";
+            errorMessage = l10n.googleSignInNoAccount;
             break;
           case GoogleSignInExceptionCode.clientConfigurationError:
-            errorMessage = "Configuration indisponible. Veuillez réessayer plus tard.";
+            errorMessage = l10n.googleSignInUnavailable;
             break;
           case GoogleSignInExceptionCode.providerConfigurationError:
-            errorMessage = "Mettez à jour Google Play Services.";
+            errorMessage = l10n.googleSignInUpdatePlayServices;
             break;
           case GoogleSignInExceptionCode.userMismatch:
-            errorMessage = "Changement de compte détecté, réessayez.";
+            errorMessage = l10n.googleSignInAccountChanged;
             break;
           default:
-            errorMessage = e.description ?? "Erreur Google Sign-In (${e.code})";
+            debugPrint('LoginScreen: GoogleSignInException ${e.code} — ${e.description}');
+            errorMessage = l10n.googleSignInGenericError;
         }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: _snackError(context),
+            ),
           );
           setState(() => _isLoading = false);
         }
@@ -510,13 +553,7 @@ class _LoginScreenState extends State<LoginScreen> {
           name: googleUser.displayName,
         );
         if (mounted) {
-          final targetScreen = authProvider.isProfileComplete
-              ? const MainScreen()
-              : const CompleteProfileScreen();
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => targetScreen),
-          );
+          Navigator.popUntil(context, (route) => route.isFirst);
         }
       } on GoogleAuthNeedsRegistrationException catch (_) {
         if (mounted) {
@@ -543,13 +580,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 pseudo: extraInfo['pseudo'] as String,
               );
               if (mounted) {
-                final targetScreen = authProvider.isProfileComplete
-                    ? const MainScreen()
-                    : const CompleteProfileScreen();
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => targetScreen),
-                );
+                Navigator.popUntil(context, (route) => route.isFirst);
                 return;
               }
             } on PseudoTakenException catch (e) {
@@ -572,13 +603,7 @@ class _LoginScreenState extends State<LoginScreen> {
                      pseudo: extraInfo['pseudo'] as String,
                    );
                     if (mounted) {
-                      final targetScreen = authProvider.isProfileComplete
-                          ? const MainScreen()
-                          : const CompleteProfileScreen();
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => targetScreen),
-                      );
+                      Navigator.popUntil(context, (route) => route.isFirst);
                       return;
                     }
                  }
@@ -590,9 +615,14 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } catch (e) {
+      // Détail technique gardé dans les logs, message générique à l'écran.
+      debugPrint('LoginScreen._loginWithGoogle a échoué : $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(l10n.googleSignInGenericError),
+            backgroundColor: _snackError(context),
+          ),
         );
       }
     } finally {
@@ -618,18 +648,29 @@ class _LoginScreenState extends State<LoginScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.login(context, email, password);
       if (mounted) {
-        final targetScreen = authProvider.isProfileComplete
-            ? const MainScreen()
-            : const CompleteProfileScreen();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => targetScreen),
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    } on DeviceAccountLimitException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.message.isNotEmpty
+                  ? e.message
+                  : l10n.deviceAccountLimit(e.max),
+            ),
+            backgroundColor: _snackWarning(context),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: _snackError(context),
+          ),
         );
       }
     } finally {
@@ -688,11 +729,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(
-                                    'Un nouveau mot de passe a été envoyé à votre adresse email. Veuillez vérifier vos spams si le message n\'est pas dans la boîte principale.',
-                                  ),
-                                  duration: Duration(seconds: 5),
-                                  backgroundColor: Colors.green,
+                                  content: Text(l10n.forgotPasswordSent),
+                                  duration: const Duration(seconds: 5),
+                                  backgroundColor: _snackSuccess(context),
                                 ),
                               );
                             }
@@ -700,7 +739,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             setDialogState(() => isSubmitting = false);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                SnackBar(
+                                  content: Text(e.toString()),
+                                  backgroundColor: _snackError(context),
+                                ),
                               );
                             }
                           }
@@ -746,13 +788,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (widget.addAccountMode) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   Image.asset(
                     'assets/images/logo.png',
                     height: 120,
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Connectez-vous pour gérer vos finances',
+                    widget.addAccountMode
+                        ? l10n.addAccountSubtitle
+                        : l10n.loginSubtitle,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -790,7 +844,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: TextButton(
                       onPressed: _isLoading ? null : _showForgotPasswordDialog,
                       child: Text(
-                        'Mot de passe oublié ?',
+                        l10n.forgotPassword,
                         style: TextStyle(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -810,17 +864,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       foregroundColor: theme.colorScheme.onPrimary,
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              // Pose sur le bouton rempli en `primary`.
+                              color: theme.colorScheme.onPrimary,
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
-                            'SE CONNECTER',
-                            style: TextStyle(
+                        : Text(
+                            l10n.loginAction,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1,
@@ -834,8 +889,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          'OU',
-                          style: TextStyle(color: Colors.grey.shade600),
+                          l10n.orSeparator,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                       const Expanded(child: Divider()),
@@ -863,11 +920,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     child: RichText(
                       text: TextSpan(
-                        text: "Vous n'avez pas de compte ? ",
+                        text: l10n.noAccountQuestion,
                         style: TextStyle(color: theme.colorScheme.onSurface),
                         children: [
                           TextSpan(
-                            text: "S'inscrire",
+                            text: l10n.registerNow,
                             style: TextStyle(
                               color: theme.colorScheme.primary,
                               fontWeight: FontWeight.bold,

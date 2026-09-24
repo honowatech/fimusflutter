@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
-import '../utils/api_config.dart';
-import 'package:dio/dio.dart';
+import '../services/auth_service.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({super.key});
@@ -15,6 +14,7 @@ class CompleteProfileScreen extends StatefulWidget {
 class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final _pseudoController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService();
   String selectedType = 'particulier';
   int? selectedCountryId;
   List<dynamic> _countries = [];
@@ -29,11 +29,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   Future<void> _fetchCountries() async {
     try {
-      final dio = Dio();
-      final response = await dio.get(ApiConfig.countries);
+      final countries = await _authService.getCountries();
       if (mounted) {
         setState(() {
-          _countries = response.data;
+          _countries = countries;
           isLoadingCountries = false;
         });
       }
@@ -59,7 +58,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
-              context.read<AuthProvider>().logout();
+              context.read<AuthProvider>().logout(context: context);
             },
           ),
         ],
@@ -91,13 +90,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                // Cartes de choix : le fond non sélectionné reste `Colors.transparent`
+                // (neutre dans les deux thèmes, il laisse voir la surface réelle).
                 Row(
                   children: [
                     Expanded(
                       child: InkWell(
-                        onTap: () {
-                          setState(() => selectedType = 'particulier');
-                        },
+                        onTap: () => setState(() => selectedType = 'particulier'),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -106,7 +105,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                             border: Border.all(
                               color: selectedType == 'particulier'
                                   ? theme.colorScheme.primary
-                                  : Colors.grey.shade300,
+                                  : theme.colorScheme.outlineVariant,
                               width: selectedType == 'particulier' ? 2 : 1,
                             ),
                             color: selectedType == 'particulier'
@@ -119,12 +118,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                                 Icons.person_rounded,
                                 color: selectedType == 'particulier'
                                     ? theme.colorScheme.primary
-                                    : Colors.grey.shade500,
+                                    : theme.colorScheme.onSurfaceVariant,
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                l10n.individualProfile,
+                                l10n.profileTypePersonal,
                                 style: TextStyle(
+                                  fontSize: 12,
                                   fontWeight: selectedType == 'particulier'
                                       ? FontWeight.bold
                                       : FontWeight.normal,
@@ -138,43 +138,136 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: InkWell(
-                        onTap: () {
-                          setState(() => selectedType = 'professionnel');
-                        },
+                        onTap: () => setState(() => selectedType = 'petit_commerce'),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: selectedType == 'professionnel'
+                              color: selectedType == 'petit_commerce'
                                   ? theme.colorScheme.primary
-                                  : Colors.grey.shade300,
-                              width: selectedType == 'professionnel' ? 2 : 1,
+                                  : theme.colorScheme.outlineVariant,
+                              width: selectedType == 'petit_commerce' ? 2 : 1,
                             ),
-                            color: selectedType == 'professionnel'
+                            color: selectedType == 'petit_commerce'
                                 ? theme.colorScheme.primary.withValues(alpha: 0.08)
                                 : Colors.transparent,
                           ),
                           child: Column(
                             children: [
                               Icon(
-                                Icons.business_rounded,
-                                color: selectedType == 'professionnel'
+                                Icons.storefront_outlined,
+                                color: selectedType == 'petit_commerce'
                                     ? theme.colorScheme.primary
-                                    : Colors.grey.shade500,
+                                    : theme.colorScheme.onSurfaceVariant,
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                l10n.professionalProfile,
+                                l10n.profileTypeSmallBusinessShort,
                                 style: TextStyle(
-                                  fontWeight: selectedType == 'professionnel'
+                                  fontSize: 12,
+                                  fontWeight: selectedType == 'petit_commerce'
                                       ? FontWeight.bold
                                       : FontWeight.normal,
-                                  color: selectedType == 'professionnel'
+                                  color: selectedType == 'petit_commerce'
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => selectedType = 'entreprise'),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selectedType == 'entreprise'
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outlineVariant,
+                              width: selectedType == 'entreprise' ? 2 : 1,
+                            ),
+                            color: selectedType == 'entreprise'
+                                ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                                : Colors.transparent,
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.business_outlined,
+                                color: selectedType == 'entreprise'
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.profileTypeCompany,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: selectedType == 'entreprise'
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: selectedType == 'entreprise'
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => selectedType = 'kiosque'),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selectedType == 'kiosque'
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outlineVariant,
+                              width: selectedType == 'kiosque' ? 2 : 1,
+                            ),
+                            color: selectedType == 'kiosque'
+                                ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                                : Colors.transparent,
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.point_of_sale_outlined,
+                                color: selectedType == 'kiosque'
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.profileTypeKiosk,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: selectedType == 'kiosque'
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: selectedType == 'kiosque'
                                       ? theme.colorScheme.primary
                                       : theme.colorScheme.onSurface,
                                 ),
@@ -203,11 +296,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         value: selectedCountryId,
                         hint: Text(l10n.selectCountry),
                         items: _countries.map((country) {
+                          final id = country is Map ? (country['id'] is int ? country['id'] as int : int.tryParse(country['id']?.toString() ?? '')) : null;
+                          final name = country is Map ? country['name']?.toString() ?? '' : country.toString();
                           return DropdownMenuItem<int>(
-                            value: country['id'],
-                            child: Text(country['name']),
+                            value: id,
+                            child: Text(name),
                           );
-                        }).toList(),
+                        }).where((item) => item.value != null).toList(),
                         onChanged: (value) {
                           setState(() {
                             selectedCountryId = value;
@@ -252,7 +347,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   onPressed: isSubmitting
                       ? null
                       : () async {
-                          if (_formKey.currentState!.validate()) {
+                          if (_formKey.currentState?.validate() == true && selectedCountryId != null) {
                             setState(() => isSubmitting = true);
                             try {
                               await context.read<AuthProvider>().completeProfile(
@@ -283,10 +378,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     foregroundColor: theme.colorScheme.onPrimary,
                   ),
                   child: isSubmitting
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
+                          ),
                         )
                       : Text(l10n.finish),
                 ),

@@ -1,26 +1,27 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import '../config/app_environment.dart';
+
+export '../config/app_environment.dart';
 
 class ApiConfig {
-  static const bool isProduction = true;
-  static const String prodBaseUrl = 'https://fimus.honowa.com/api'; // Remplacez par votre domaine en prod
+  static const String prodBaseUrl = AppEnvironment.prodBaseUrl;
 
-  /// Returns the correct base URL depending on the runtime environment:
-  /// - Browser (Flutter Web) → http://localhost:8000/api
-  /// - Android emulator      → http://10.0.2.2:8000/api  (emulator maps 10.0.2.2 → host machine)
-  /// - Physical device / iOS → replace with your machine's LAN IP (e.g. http://192.168.1.x:8000/api)
-  static String get baseUrl {
-    if (isProduction) {
-      if (!prodBaseUrl.startsWith('https://')) {
-         throw Exception("Production API URL must use HTTPS.");
-      }
-      return prodBaseUrl;
-    }
-    if (kIsWeb) {
-      return 'http://localhost:8000/api';
-    }
-    // Android emulator: 10.0.2.2 maps to the host machine's localhost
-    return 'http://10.0.2.2:8000/api';
-  }
+  // Production par défaut : l'environnement est résolu au démarrage par
+  // EnvironmentStore puis modifié uniquement via AppConfigProvider.
+  static AppEnvironment _env = AppEnvironment.production;
+
+  /// Environnement actif (URL de l'API, clés de stockage, noms de bases)
+  static AppEnvironment get env => _env;
+
+  /// Indique si l'application est en production
+  static bool get isProduction => !_env.isDev;
+
+  /// Indique si l'application est en mode développement (BD / API locale)
+  static bool get isDevMode => _env.isDev;
+
+  static void configure(AppEnvironment env) => _env = env;
+
+  /// Retourne l'URL de base active
+  static String get baseUrl => _env.apiBaseUrl;
 
   // Auth Endpoints
   static String get login          => '$baseUrl/login';
@@ -31,46 +32,50 @@ class ApiConfig {
   static String get updatePseudo   => '$baseUrl/user/update-pseudo';
   static String get googleAuth     => '$baseUrl/auth/google';
 
+  /// Réglages applicatifs publics (limite multicompte par appareil, etc.)
+  static String get appSettings    => '$baseUrl/app-settings';
+
   // Reference Data Endpoints
-  static String get countries => '$baseUrl/countries';
-  static String get operators => '$baseUrl/operators';
-  static String get ussdCodes => '$baseUrl/ussd-codes';
-  static String get ussdByCountry => '$baseUrl/ussd-by-country';
+  static String get countries      => '$baseUrl/countries';
+  static String get operators      => '$baseUrl/operators';
+  static String get ussdCodes      => '$baseUrl/ussd-codes';
+  static String get ussdByCountry  => '$baseUrl/ussd-by-country';
 
   // Sync Endpoints
-  static String get syncPull => '$baseUrl/sync/pull';
-  static String get syncPush => '$baseUrl/sync/push';
+  static String get syncPull       => '$baseUrl/sync/pull';
+  static String get syncPush       => '$baseUrl/sync/push';
 
   // Exchange Rates
-  static String get exchangeRates => '$baseUrl/exchange-rates';
+  static String get exchangeRates  => '$baseUrl/exchange-rates';
 
   // User Country Update
-  static String get updateCountry => '$baseUrl/user/update-country';
+  static String get updateCountry  => '$baseUrl/user/update-country';
 
   // Announcements
-  static String get announcements => '$baseUrl/announcements';
+  static String get announcements  => '$baseUrl/announcements';
 
-  static String get storageUrl => baseUrl.replaceAll('/api', '/storage');
+  static String get storageUrl     => baseUrl.replaceAll('/api', '/storage');
 
-  /// Remplace l'IP localhost par la bonne adresse selon l'environnement
+  static const _localHosts = {'localhost', '127.0.0.1', '10.0.2.2'};
+
+  /// En dev, les URLs produites par Laravel (`asset()`) pointent vers un hôte
+  /// local (localhost, 127.0.0.1:8000…) : on les redirige vers l'origine de
+  /// l'API active, joignable depuis l'appareil.
   static String mapImageUrl(String? url) {
     if (url == null || url.isEmpty) return '';
-    
     if (isProduction) return url;
 
-    String mappedUrl = url;
-    // Fix missing port 8000 for local development URLs returned by Laravel asset() without port
-    if (mappedUrl.startsWith('http://localhost/')) {
-      mappedUrl = mappedUrl.replaceFirst('http://localhost/', 'http://localhost:8000/');
-    } else if (mappedUrl.startsWith('http://127.0.0.1/')) {
-      mappedUrl = mappedUrl.replaceFirst('http://127.0.0.1/', 'http://127.0.0.1:8000/');
-    }
+    final uri = Uri.tryParse(url);
+    if (uri == null || !_localHosts.contains(uri.host)) return url;
 
-    if (kIsWeb) {
-      // Dans le navigateur, localhost est déjà correct
-      return mappedUrl.replaceAll('10.0.2.2', 'localhost').replaceAll('127.0.0.1', 'localhost');
-    }
-    return mappedUrl.replaceAll('localhost', '10.0.2.2').replaceAll('127.0.0.1', '10.0.2.2');
+    final api = Uri.parse(baseUrl);
+    return Uri(
+      scheme: api.scheme,
+      host: api.host,
+      port: api.hasPort ? api.port : null,
+      path: uri.path,
+      query: uri.hasQuery ? uri.query : null,
+      fragment: uri.hasFragment ? uri.fragment : null,
+    ).toString();
   }
 }
-

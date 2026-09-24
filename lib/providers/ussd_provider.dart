@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as developer;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,8 +59,7 @@ class UssdProvider with ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   Future<void> loadData() {
-    _loadFuture ??= _performLoadData();
-    return _loadFuture!;
+    return _loadFuture ??= _performLoadData();
   }
 
   Future<void> _performLoadData() async {
@@ -234,8 +232,7 @@ class UssdProvider with ChangeNotifier {
 
   /// Télécharge le catalogue USSD de référence depuis le backend.
   Future<void> _fetchReferenceUssd() {
-    _fetchRefFuture ??= _performFetchReferenceUssd();
-    return _fetchRefFuture!;
+    return _fetchRefFuture ??= _performFetchReferenceUssd();
   }
 
   Future<void> _performFetchReferenceUssd() async {
@@ -627,6 +624,18 @@ class UssdProvider with ChangeNotifier {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Vide l'état en mémoire (déconnexion) : la base locale et les préférences
+  /// par utilisateur sont purgées par ailleurs. Le catalogue de référence
+  /// [_referenceUssd] est conservé : c'est un catalogue générique du backend,
+  /// sans donnée personnelle, réutilisé à la connexion suivante.
+  void clear() {
+    _operators = [];
+    _operations = [];
+    _categories = _getDefaultCategories();
+    _injectedCountries.clear();
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------------------

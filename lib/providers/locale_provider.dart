@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import '../services/auth_service.dart';
+import '../services/notifications/notification_texts.dart';
+import '../utils/api_client.dart';
 import '../utils/api_config.dart';
 
 class LocaleProvider with ChangeNotifier {
@@ -18,6 +19,7 @@ class LocaleProvider with ChangeNotifier {
     final String? languageCode = prefs.getString('language_code');
     if (languageCode != null) {
       _locale = Locale(languageCode);
+      NotificationTexts.setLocale(_locale);
       notifyListeners();
     }
   }
@@ -26,21 +28,17 @@ class LocaleProvider with ChangeNotifier {
     if (!['en', 'fr'].contains(locale.languageCode)) return;
     
     _locale = locale;
+    NotificationTexts.setLocale(locale);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language_code', locale.languageCode);
     notifyListeners();
 
     try {
-      final token = prefs.getString('auth_token');
+      final token = await AuthService().getToken();
       if (token != null) {
-        await http.post(
-          Uri.parse('${ApiConfig.baseUrl}/users/locale'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({'locale': locale.languageCode}),
+        await ApiClient.instance.post(
+          '${ApiConfig.baseUrl}/users/locale',
+          data: {'locale': locale.languageCode},
         );
       }
     } catch (e) {

@@ -45,6 +45,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               }
             },
           ),
+          // PALETTE VOLONTAIREMENT FIGÉE (règle 5) : la surimpression de scan
+          // est posée sur le flux caméra, pas sur une surface du thème. Le
+          // blanc et le noir translucide restent le seul couple lisible quelle
+          // que soit l'image filmée ; les jetons clair/sombre n'ont aucun sens
+          // ici et rendraient le cadre invisible sur une scène claire.
           Center(
             child: Container(
               width: 250,

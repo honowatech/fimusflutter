@@ -4,6 +4,7 @@ import 'package:monitrack/l10n/app_localizations.dart';
 import '../providers/ussd_provider.dart';
 import '../providers/profile_provider.dart';
 import '../models/ussd_operation.dart';
+import '../utils/app_theme.dart';
 
 class AddOperationScreen extends StatefulWidget {
   final String operatorId;
@@ -129,7 +130,8 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
     
     final operator = ussdProvider.getOperatorById(widget.operatorId);
     final operatorName = operator?.name ?? widget.operatorId;
-    final color = Theme.of(context).colorScheme.primary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.newOperation)),
@@ -178,7 +180,7 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
                   decoration: InputDecoration(
                     labelText: l10n.ussdCodeExample,
                     prefixIcon: const Icon(Icons.dialpad),
-                    helperText: "Exemple: *150*1*1*{amount}*{phone}#",
+                    helperText: '${l10n.exampleLabel} *150*1*1*{amount}*{phone}#',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (val) =>
@@ -193,8 +195,12 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Puces d'insertion rapide :",
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                        l10n.ussdQuickInsertChips,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -202,29 +208,53 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
                         runSpacing: 4.0,
                         children: [
                           ActionChip(
-                            avatar: const Icon(Icons.payments_outlined, size: 16, color: Colors.green),
-                            label: const Text('Montant'),
+                            avatar: Icon(
+                              Icons.payments_outlined,
+                              size: 16,
+                              color: _chipGreen(colorScheme),
+                            ),
+                            label: Text(l10n.variableAmount),
                             onPressed: () => _insertVariable('amount'),
-                            backgroundColor: Colors.green.withOpacity(0.05),
-                            side: BorderSide(color: Colors.green.withOpacity(0.2)),
+                            backgroundColor:
+                                _chipGreen(colorScheme).withValues(alpha: 0.05),
+                            side: BorderSide(
+                              color:
+                                  _chipGreen(colorScheme).withValues(alpha: 0.2),
+                            ),
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           ActionChip(
-                            avatar: const Icon(Icons.contact_phone_outlined, size: 16, color: Colors.blue),
-                            label: const Text('Numéro'),
+                            avatar: Icon(
+                              Icons.contact_phone_outlined,
+                              size: 16,
+                              color: _chipBlue(colorScheme),
+                            ),
+                            label: Text(l10n.variableNumber),
                             onPressed: () => _insertVariable('phone'),
-                            backgroundColor: Colors.blue.withOpacity(0.05),
-                            side: BorderSide(color: Colors.blue.withOpacity(0.2)),
+                            backgroundColor:
+                                _chipBlue(colorScheme).withValues(alpha: 0.05),
+                            side: BorderSide(
+                              color:
+                                  _chipBlue(colorScheme).withValues(alpha: 0.2),
+                            ),
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           ActionChip(
-                            avatar: const Icon(Icons.qr_code_scanner, size: 16, color: Colors.orange),
-                            label: const Text('Code Marchand'),
+                            avatar: Icon(
+                              Icons.qr_code_scanner,
+                              size: 16,
+                              color: _chipOrange(colorScheme),
+                            ),
+                            label: Text(l10n.variableMerchantCode),
                             onPressed: () => _insertVariable('merchant_code'),
-                            backgroundColor: Colors.orange.withOpacity(0.05),
-                            side: BorderSide(color: Colors.orange.withOpacity(0.2)),
+                            backgroundColor:
+                                _chipOrange(colorScheme).withValues(alpha: 0.05),
+                            side: BorderSide(
+                              color: _chipOrange(colorScheme)
+                                  .withValues(alpha: 0.2),
+                            ),
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -243,7 +273,8 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
                   onPressed: _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: color,
-                    foregroundColor: Colors.white,
+                    // `color` vaut colorScheme.primary : on-couleur associee.
+                    foregroundColor: colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -261,12 +292,23 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
     );
   }
 
+  /// Teintes des puces d'insertion : litteraux d'origine conserves en clair,
+  /// jetons semantiques en sombre (les `Colors.*` bruts y sont illisibles).
+  Color _chipGreen(ColorScheme cs) =>
+      cs.tone(light: Colors.green, dark: cs.success);
+
+  Color _chipBlue(ColorScheme cs) => cs.tone(light: Colors.blue, dark: cs.info);
+
+  Color _chipOrange(ColorScheme cs) =>
+      cs.tone(light: Colors.orange, dark: cs.warning);
+
   Widget _buildLivePreview(Color color, String currency, AppLocalizations l10n) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withOpacity(0.25), width: 1.5),
+        side: BorderSide(color: colorScheme.outlineVariant, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -275,18 +317,22 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.06),
+              color: colorScheme.surfaceContainerLow,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(
               children: [
-                Icon(Icons.remove_red_eye_outlined, size: 18, color: Colors.grey[600]),
+                Icon(
+                  Icons.remove_red_eye_outlined,
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 8),
                 Text(
-                  "Aperçu de l'écran d'exécution",
+                  l10n.ussdPreviewTitle,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey[700],
+                    color: colorScheme.onSurfaceVariant,
                     fontSize: 13,
                   ),
                 ),
@@ -301,8 +347,13 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
                 ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text(
-                      "Saisissez un code USSD contenant des variables comme {amount} ou {phone} pour générer l'aperçu.",
-                      style: TextStyle(color: Colors.grey[500], fontSize: 13, fontStyle: FontStyle.italic),
+                      l10n.ussdPreviewEmptyHint('{amount}', '{phone}'),
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.7),
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   )
@@ -319,7 +370,7 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
                         Widget? suffix;
 
                         if (isAmount) {
-                          label = "Montant à transférer";
+                          label = l10n.ussdAmountToTransferLabel;
                           icon = Icons.payments_outlined;
                           suffix = Text(currency, style: const TextStyle(fontWeight: FontWeight.bold));
                         } else if (isPhone) {
@@ -353,7 +404,10 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
                             ),
                             child: Text(
                               isAmount ? "10 000" : (isPhone ? "677123456" : "12345"),
-                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         );
@@ -373,10 +427,10 @@ class _AddOperationScreenState extends State<AddOperationScreen> {
                             children: [
                               Icon(Icons.calculate_outlined, color: color, size: 20),
                               const SizedBox(width: 8),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
-                                  "Inclure les frais de retrait",
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                  l10n.includeWithdrawalFees,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                                 ),
                               ),
                               Switch(

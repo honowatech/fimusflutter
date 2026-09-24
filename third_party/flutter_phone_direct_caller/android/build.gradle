@@ -1,0 +1,49 @@
+group 'com.yanisalfian.flutterphonedirectcaller'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    ext.kotlin_version = '1.7.0'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.0.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Vendored copy: Kotlin is compiled by AGP 9 built-in Kotlin
+// (android.builtInKotlin=true), so the Kotlin Gradle Plugin is not applied here.
+apply plugin: 'com.android.library'
+
+android {
+    namespace "com.yanisalfian.flutterphonedirectcaller"
+    compileSdkVersion 34
+    ndkVersion "25.1.8937393"
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        // You can update the following values to match your application needs.
+        // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
+        minSdkVersion 21
+        targetSdkVersion 34
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+}

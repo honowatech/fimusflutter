@@ -1,27 +1,16 @@
 import 'package:dio/dio.dart';
 import '../models/contact.dart';
 import '../services/auth_service.dart';
+import '../utils/api_client.dart';
 import '../utils/api_config.dart';
 
 class ContactService {
+  // ignore: unused_field
   final AuthService _authService;
-  late final Dio _dio;
+  Dio get _dio => ApiClient.instance;
 
   ContactService({AuthService? authService})
-      : _authService = authService ?? AuthService() {
-    _dio = Dio();
-    _dio.options.headers['Accept'] = 'application/json';
-
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await _authService.getToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        return handler.next(options);
-      },
-    ));
-  }
+      : _authService = authService ?? AuthService();
 
   Future<List<Contact>> getContacts() async {
     try {

@@ -1,28 +1,111 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
+# Configuration de l'analyseur statique Dart.
 #
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# Socle : `flutter_lints` (règles recommandées Flutter). Le durcissement
+# ci-dessous a été ajouté au sprint 5 et mesuré règle par règle : seules les
+# règles dont le coût immédiat est nul ou quasi nul ont été activées, pour que
+# `dart analyze` reste un signal exploitable et non un mur d'avertissements.
+# Les règles écartées et leur coût mesuré sont documentés en bas de fichier.
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
-linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
-  rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+analyzer:
+  exclude:
+    # Copies vendorisées des plugins (third_party) : gardées telles quelles.
+    - third_party/**
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+linter:
+  # Une règle peut être neutralisée ponctuellement avec `// ignore: nom_regle`
+  # ou `// ignore_for_file: nom_regle` plutôt que d'être désactivée ici.
+  rules:
+    # --- Fuites de ressources et cycles de vie -----------------------------
+    # 0 occurrence à l'activation : garde-fous pour l'avenir.
+    - cancel_subscriptions # StreamSubscription non annulée dans dispose()
+    - close_sinks # Sink/StreamController non fermé
+
+    # --- Erreurs de typage silencieuses ------------------------------------
+    # 0 occurrence : ces règles attrapent des comparaisons ou des appels qui
+    # compilent mais ne peuvent jamais être vrais.
+    - collection_methods_unrelated_type
+    - test_types_in_equals
+    - hash_and_equals
+    - avoid_type_to_string
+    - literal_only_boolean_expressions
+    - invalid_case_patterns
+    - no_self_assignments
+    - no_wildcard_variable_uses
+    - null_check_on_nullable_type_parameter
+    - tighten_type_of_initializing_formals
+    - prefer_void_to_null
+
+    # --- Flot de contrôle et gestion d'erreurs -----------------------------
+    # 0 occurrence : un `throw`/`return` dans un finally avale l'exception
+    # d'origine, un `else` vide masque une condition inversée.
+    - throw_in_finally
+    - control_flow_in_finally
+    - avoid_empty_else
+    - empty_statements
+    - unnecessary_statements
+    - use_rethrow_when_possible
+    - avoid_returning_null_for_void
+
+    # --- Asynchrone --------------------------------------------------------
+    # Coût mesuré : avoid_void_async 3, unnecessary_await_in_return 3,
+    # avoid_slow_async_io 2. Chacune pointe du code réellement à revoir
+    # (un `void` async ne peut ni être attendu ni voir ses erreurs remonter).
+    - avoid_void_async
+    - unnecessary_await_in_return
+    - avoid_slow_async_io
+
+    # --- Lisibilité et API -------------------------------------------------
+    # 0 occurrence : maintiennent l'état actuel du code.
+    - always_declare_return_types
+    - avoid_unused_constructor_parameters
+    - avoid_field_initializers_in_const_classes
+    - use_late_for_private_fields_and_variables
+    - unnecessary_null_aware_assignments
+    - unnecessary_nullable_for_final_variable_declarations
+    - prefer_null_aware_method_calls
+    - no_adjacent_strings_in_list
+    - use_string_in_part_of_directives
+
+    # --- Divers ------------------------------------------------------------
+    - secure_pubspec_urls # aucune URL non HTTPS dans pubspec.yaml
+
+# ---------------------------------------------------------------------------
+# Règles évaluées puis ÉCARTÉES — coût mesuré sur le dépôt au sprint 5
+# (`dart analyze` avec la règle activée ; référence : 113 avertissements).
+# ---------------------------------------------------------------------------
+#
+# Mur rouge, rejetées :
+#   directives_ordering               210  (purement cosmétique)
+#   avoid_catches_without_on_clauses  181  (refonte de toute la gestion d'erreurs)
+#   avoid_redundant_argument_values   147  (cosmétique, friction avec Flutter)
+#   discarded_futures                 145  (doublon partiel d'unawaited_futures)
+#
+# À activer dans un second temps, après correction ciblée :
+#   unawaited_futures         80  NON auto-corrigeable par `dart fix`. Vrai
+#                                 signal (futures oubliés dans les providers),
+#                                 mais 80 occurrences noieraient le reste.
+#                                 À traiter par lots, puis activer.
+#   prefer_const_constructors 47  Auto-corrigeables en une commande :
+#   prefer_final_locals       31  `dart fix --apply --code=<regle>`.
+#   prefer_const_declarations 12  Activer juste APRÈS avoir passé `dart fix`,
+#   prefer_const_literals_…    1  sinon 91 avertissements d'un coup.
+#   avoid_dynamic_calls       43  Nombreux appels sur du JSON décodé ; suppose
+#                                 un typage préalable des réponses API.
+#   unnecessary_lambdas 16, avoid_positional_boolean_parameters 12,
+#   prefer_final_in_for_each 6, avoid_bool_literals_in_conditional_expressions 5,
+#   unnecessary_parenthesis 4     Cosmétiques, gain faible.
+#
+# Retirées de Dart, à ne pas réintroduire : avoid_returning_null_for_future,
+# iterable_contains_unrelated_type, list_remove_unrelated_type (Dart 3.3) et
+# body_might_complete_normally_catch_error (n'a jamais existé).
+#
+# Documentation : https://dart.dev/lints

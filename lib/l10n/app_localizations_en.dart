@@ -179,6 +179,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get today => 'Today';
 
   @override
+  String get yesterday => 'Yesterday';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get errorFetchNotifications =>
+      'Unable to load notifications. Check your connection.';
+
+  @override
+  String get errorDeleteNotif => 'Error while deleting.';
+
+  @override
+  String get markAllAsReadTooltip => 'Mark all as read';
+
+  @override
+  String get notifyAnnouncementsPref => 'Announcements and campaigns';
+
+  @override
+  String get notifyAnnouncementsPrefDesc =>
+      'Receive information messages sent by FIMUS.';
+
+  @override
   String get thisWeek => 'This week';
 
   @override
@@ -191,7 +214,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noOperationPeriod => 'No operation for this period.';
 
   @override
-  String get addAccount => 'Add an account';
+  String get addAccount => 'Add account';
 
   @override
   String get editAccount => 'Edit account';
@@ -423,7 +446,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Variables (comma-separated, e.g. contact, amount)';
 
   @override
-  String get recentOperations => 'Recent actions';
+  String get recentOperations => 'Quick actions';
+
+  @override
+  String get last7Days => 'Last 7 days';
+
+  @override
+  String get incomeEntries => 'Income';
 
   @override
   String get incomeCategories => 'Income Categories';
@@ -574,9 +603,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addLendAction => '+ Lend';
-
-  @override
-  String get myContacts => 'My Contacts';
 
   @override
   String get noContactSaved => 'No contact saved';
@@ -895,6 +921,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noNotifications => 'No notifications.';
 
   @override
+  String get notificationFallback => 'New notification';
+
+  @override
   String get notifications => 'Notifications';
 
   @override
@@ -1034,7 +1063,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catIncomeDividends => 'Dividends';
 
   @override
-  String get catIncomeSale => 'Sale of goods';
+  String get catIncomeSale => 'Sale Of Goods';
 
   @override
   String get catIncomeDonations => 'Donations';
@@ -1165,6 +1194,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get uniqueIdCopied => 'Unique ID copied!';
 
   @override
+  String get myContacts => 'My Contacts';
+
+  @override
   String get manageContactsDesc =>
       'Manage your contacts for sharing accounts and debts';
 
@@ -1246,4 +1278,1540 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get accountDeletedSuccess =>
       'Your account has been deleted successfully.';
+
+  @override
+  String get tabOperations => 'Transactions';
+
+  @override
+  String get tabBreakdown => 'Overview & Poles';
+
+  @override
+  String get spendingByPole => 'Spending by pole';
+
+  @override
+  String get spendingByMember => 'Spending by member';
+
+  @override
+  String get familyContributions => 'Contributions';
+
+  @override
+  String get shareWithContacts => 'Share with contacts';
+
+  @override
+  String get selectContacts => 'Select contacts';
+
+  @override
+  String get noContactsSelected => 'No contacts selected';
+
+  @override
+  String get noContactFound => 'No contact found';
+
+  @override
+  String get linkedContacts => 'Linked contacts';
+
+  @override
+  String get accountSharedSuccessMultiple => 'Account shared successfully!';
+
+  @override
+  String get filterAll => 'All poles';
+
+  @override
+  String get periodMonth => 'This month';
+
+  @override
+  String get periodLastMonth => 'Last month';
+
+  @override
+  String get period30Days => 'Last 30 days';
+
+  @override
+  String get periodYear => 'This year';
+
+  @override
+  String get periodCustom => 'Custom';
+
+  @override
+  String get totalExpenses => 'Total expenses';
+
+  @override
+  String get totalIncomes => 'Total incomes';
+
+  @override
+  String get netBalance => 'Net balance';
+
+  @override
+  String get noExpenseInPeriod => 'No expenses in this period';
+
+  @override
+  String get addContactsToShare => 'Add contacts';
+
+  @override
+  String selectedContactsCount(int count) {
+    return '$count contact(s) selected';
+  }
+
+  @override
+  String get profileTypeSection => 'Usage Profile';
+
+  @override
+  String get currentProfileType => 'Current profile type';
+
+  @override
+  String get switchToProfessional => 'Switch to Professional profile';
+
+  @override
+  String get switchToPersonal => 'Switch to Personal profile';
+
+  @override
+  String get profileTypePermanent => 'Permanent profile';
+
+  @override
+  String get profileTypeAlreadyChanged =>
+      'You have already changed your profile. This choice is now irreversible.';
+
+  @override
+  String get profileTypeOneTimeHint => 'One-time change allowed';
+
+  @override
+  String get profileChangeTitle => 'Change profile?';
+
+  @override
+  String get profileChangeToProfessionalDesc =>
+      'By switching to the Professional profile, you will gain access to Merchant / Agent USSD codes, cash register tools and commercial transactions.';
+
+  @override
+  String get profileChangeToPersonalDesc =>
+      'By switching to the Personal profile, your interface will be simplified and focused on your personal finances and expenses.';
+
+  @override
+  String get profileChangeWarning =>
+      'Warning: this action is permanent. You will not be able to revert to your previous profile after confirmation.';
+
+  @override
+  String get confirmProfileChange => 'Confirm change';
+
+  @override
+  String get profileChangeSuccess => 'Profile changed successfully';
+
+  @override
+  String get profileChangeError => 'Error changing profile';
+
+  @override
+  String get announcements => 'Announcements';
+
+  @override
+  String get enableNotificationsPrompt =>
+      'Enable notifications to stay updated.';
+
+  @override
+  String get batteryOptimizationPrompt =>
+      'To receive reminders on time, allow FIMUS to ignore battery optimization.';
+
+  @override
+  String get onboardingNotificationsDenied =>
+      'Notifications not allowed. You can enable them later in settings.';
+
+  @override
+  String get notifyDebtsPref => 'Debts and repayments';
+
+  @override
+  String get notifyDebtsPrefDesc =>
+      'Alerts when a shared debt is created, updated, or declined.';
+
+  @override
+  String get notifyContactsPref => 'Contacts';
+
+  @override
+  String get notifyContactsPrefDesc =>
+      'Alerts when someone adds you to their contacts.';
+
+  @override
+  String get notifyJointAccountsPref => 'Joint accounts';
+
+  @override
+  String get notifyJointAccountsPrefDesc =>
+      'Alerts when you are invited to a shared account.';
+
+  @override
+  String get confirmAndRegister => 'CONFIRM AND REGISTER';
+
+  @override
+  String get suggestionsLabel => 'Suggestions:';
+
+  @override
+  String get unnamedContact => 'A contact';
+
+  @override
+  String get debtDueNotifTitleDebt => '⏰ Due date reminder: Debt';
+
+  @override
+  String get debtDueNotifTitleReceivable => '⏰ Due date reminder: Receivable';
+
+  @override
+  String debtDueNotifBodyDebt(String amount, String currency, String name) {
+    return 'Your debt of $amount $currency to $name is due today.';
+  }
+
+  @override
+  String debtDueNotifBodyReceivable(
+    String amount,
+    String currency,
+    String name,
+  ) {
+    return 'The repayment of $amount $currency by $name is due today.';
+  }
+
+  @override
+  String get scheduledExpenseNotifTitle => '⏰ Scheduled expense';
+
+  @override
+  String scheduledExpenseNotifBody(
+    String title,
+    String amount,
+    String currency,
+    String time,
+  ) {
+    return '\"$title\" · $amount $currency — due at $time. Tap to confirm, edit, or cancel.';
+  }
+
+  @override
+  String get scheduledConfirmAction => 'Confirm';
+
+  @override
+  String get scheduledCancelAction => 'Cancel';
+
+  @override
+  String get scheduledExpense => 'Scheduled expense';
+
+  @override
+  String get scheduledLabel => 'Scheduled';
+
+  @override
+  String get addScheduledExpense => 'Add scheduled expense';
+
+  @override
+  String get editScheduledExpense => 'Edit scheduled expense';
+
+  @override
+  String get scheduledExpenses => 'Scheduled expenses';
+
+  @override
+  String get dateAndTime => 'Date and time';
+
+  @override
+  String get confirmExpense => 'Confirm expense';
+
+  @override
+  String get modify => 'Modify';
+
+  @override
+  String get cancelScheduledExpense => 'Cancel scheduled expense';
+
+  @override
+  String get cancelScheduledExpenseTitle => 'Cancel this scheduled expense?';
+
+  @override
+  String get cancelScheduledExpenseBody =>
+      'The scheduled expense will be deleted and you will no longer be notified.';
+
+  @override
+  String get futureDateRequired => 'Date and time must be in the future.';
+
+  @override
+  String get scheduledExpensesEmpty => 'No scheduled expenses yet.';
+
+  @override
+  String get saveSchedule => 'Save schedule';
+
+  @override
+  String get scheduleSaved =>
+      'Scheduled expense saved. You will be notified when it is due.';
+
+  @override
+  String get scheduleUpdated => 'Schedule updated.';
+
+  @override
+  String get scheduledExpenseConfirmed => 'Expense confirmed ✅';
+
+  @override
+  String get scheduledExpenseCancelled => 'Scheduled expense cancelled';
+
+  @override
+  String get confirmNow => 'Confirm now';
+
+  @override
+  String upcomingScheduledExpenses(int count) {
+    return '$count scheduled expense(s)';
+  }
+
+  @override
+  String scheduledOn(String date) {
+    return 'Scheduled for: $date';
+  }
+
+  @override
+  String scheduledTodayAt(String time) {
+    return 'today at $time';
+  }
+
+  @override
+  String scheduledInDays(int days) {
+    return 'in $days day(s)';
+  }
+
+  @override
+  String get editExpense => 'Edit expense';
+
+  @override
+  String get editIncome => 'Edit income';
+
+  @override
+  String get operationOptions => 'Transaction options';
+
+  @override
+  String get detailsTitle => 'Transaction details';
+
+  @override
+  String get typeLabel => 'Type';
+
+  @override
+  String get operationDate => 'Transaction date';
+
+  @override
+  String get recordedDate => 'Recorded date';
+
+  @override
+  String get recordedBy => 'Recorded by';
+
+  @override
+  String get linkedAccount => 'Linked account';
+
+  @override
+  String get noteLabel => 'Note';
+
+  @override
+  String get noNote => 'No note';
+
+  @override
+  String get me => 'Me';
+
+  @override
+  String get status => 'Status';
+
+  @override
+  String get dueDateLabel => 'Due date';
+
+  @override
+  String get debtTagLabel => 'Related person';
+
+  @override
+  String get debtStatusPending => 'Pending';
+
+  @override
+  String get debtStatusAccepted => 'Accepted';
+
+  @override
+  String sharedAccountOperationBy(String name) {
+    return 'Operation recorded on this shared account by $name';
+  }
+
+  @override
+  String get myAccount => 'My Account';
+
+  @override
+  String get user => 'User';
+
+  @override
+  String get myPseudo => 'My Pseudo';
+
+  @override
+  String get notDefined => 'Not defined';
+
+  @override
+  String get pseudoCopied => 'Pseudo copied!';
+
+  @override
+  String syncComplete(int pushed, int pulled) {
+    return 'Sync complete — $pushed pushed, $pulled pulled';
+  }
+
+  @override
+  String syncError(String message) {
+    return 'Error: $message';
+  }
+
+  @override
+  String get logoutTitle => 'Log out';
+
+  @override
+  String get logoutConfirmBody =>
+      'Are you sure you want to log out? Your local data will be preserved.';
+
+  @override
+  String get loginToSync => 'Log in to sync your data to the cloud.';
+
+  @override
+  String get accessSecurity => 'Access Security';
+
+  @override
+  String get fingerprintFaceId => 'Fingerprint / Face ID';
+
+  @override
+  String get enter4Digits => 'Enter 4 digits';
+
+  @override
+  String get pinCodesDoNotMatch => 'PIN codes do not match';
+
+  @override
+  String get pinRequired => 'PIN code required';
+
+  @override
+  String get environmentDevMode => 'Environment & Dev Mode';
+
+  @override
+  String get devModeLocalDb => 'Developer Mode (Local DB)';
+
+  @override
+  String get productionMode => 'Production Mode (PlayStore)';
+
+  @override
+  String connectedToLocalDb(String url) {
+    return 'Connected to local database: $url';
+  }
+
+  @override
+  String get connectedToOnlineServer =>
+      'Connected to the secure online server (PlayStore)';
+
+  @override
+  String get enableDevModeTitle => 'Enable Dev Mode?';
+
+  @override
+  String get enableDevModeBody =>
+      'In Dev Mode, the app connects to your local database (local Laravel) and isolates data in monitrack_dev.db.\n\nYou can switch back to Production Mode at any time before PlayStore publication.';
+
+  @override
+  String get enableDevModeBtn => 'Enable Dev Mode';
+
+  @override
+  String localDbInfo(String db, String url) {
+    return 'Local database active: $db\nAPI URL: $url';
+  }
+
+  @override
+  String get localEnvType => 'Local environment type:';
+
+  @override
+  String get hostVhost => 'Host fimus.local (Recommended)';
+
+  @override
+  String get hostEmulator => 'Android Emulator (10.0.2.2)';
+
+  @override
+  String get hostWeb => 'Localhost / Web';
+
+  @override
+  String get hostCustom => 'Custom IP / URL';
+
+  @override
+  String get localApiUrlLabel => 'Local API URL (Laravel Server)';
+
+  @override
+  String get localApiUrlHint =>
+      'http://fimus.local/api or http://192.168.1.50:8000/api';
+
+  @override
+  String get localApiUrlHelper =>
+      'Enter your local server address (e.g. http://fimus.local/api or WiFi IP).';
+
+  @override
+  String get testConnection => 'Test connection';
+
+  @override
+  String get devHostApply => 'Apply';
+
+  @override
+  String get resetToLaunchProfile => 'Back to launch profile';
+
+  @override
+  String connectionTestOk(int ms) {
+    return 'Connection successful ($ms ms)';
+  }
+
+  @override
+  String connectionTestHttpStatus(int code) {
+    return 'Server responded with code $code';
+  }
+
+  @override
+  String get connectionTestTimeout =>
+      'Timed out (> 4 s). Check the URL or the server.';
+
+  @override
+  String get connectionTestRefused =>
+      'Connection refused. Is the local server running?';
+
+  @override
+  String connectionTestError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get purgeTestDbTitle => 'Purge the local test database?';
+
+  @override
+  String get purgeTestDbBody =>
+      'This action deletes the test data from monitrack_dev.db. Your production database will not be affected.';
+
+  @override
+  String get purge => 'Purge';
+
+  @override
+  String get purgeTests => 'Purge tests';
+
+  @override
+  String get backToProduction => 'Back to Production';
+
+  @override
+  String get allCategoriesSelected => 'Categories';
+
+  @override
+  String categoriesSelectedCount(int count) {
+    return '$count categories';
+  }
+
+  @override
+  String get filterByCategory => 'Filter by category';
+
+  @override
+  String get accountsDesc => 'Accounts signed in on this device';
+
+  @override
+  String accountsCount(int count) {
+    return '$count accounts signed in';
+  }
+
+  @override
+  String get addAccountSubtitle =>
+      'Sign in to another MoniTrack account on this device';
+
+  @override
+  String get activeAccount => 'Active';
+
+  @override
+  String deviceAccountLimit(int max) {
+    return 'You can connect up to $max accounts on this device. Sign out of one to add another.';
+  }
+
+  @override
+  String createCategory(String name) {
+    return 'Create « $name »';
+  }
+
+  @override
+  String get notificationSettingsTitle => 'Notifications';
+
+  @override
+  String get notificationSettingsSubtitle =>
+      'Permissions, categories and quiet hours';
+
+  @override
+  String get notificationPermissionSection => 'System permission';
+
+  @override
+  String get notificationPermissionGranted => 'Notifications allowed';
+
+  @override
+  String get notificationPermissionGrantedDesc =>
+      'FIMUS can alert you in real time.';
+
+  @override
+  String get notificationPermissionDenied => 'Notifications blocked';
+
+  @override
+  String get notificationPermissionDeniedDesc =>
+      'Without permission, due-date reminders and shared debt alerts will not be displayed.';
+
+  @override
+  String get notificationPermissionUnknown => 'Permission not checked';
+
+  @override
+  String get notificationPermissionUnknownDesc =>
+      'Check the permission status to receive alerts.';
+
+  @override
+  String get notificationPermissionCheck => 'Check';
+
+  @override
+  String get notificationPermissionOpenSettings => 'Open settings';
+
+  @override
+  String get notificationPermissionSettingsHint =>
+      'The system will not ask again. Enable notifications from the app settings.';
+
+  @override
+  String get notificationPermissionRationaleTitle => 'Enable notifications?';
+
+  @override
+  String get notificationPermissionRationaleBody =>
+      'FIMUS notifies you when a debt is due, when someone adds you to a shared account and before a scheduled expense. No promotional notification is sent without your consent.';
+
+  @override
+  String get notificationPermissionRationaleConfirm => 'Allow';
+
+  @override
+  String get notificationPermissionRationaleDismiss => 'Later';
+
+  @override
+  String get notificationCategoriesSection => 'Categories';
+
+  @override
+  String get notifyScheduledExpensesPref => 'Scheduled expenses';
+
+  @override
+  String get notifyScheduledExpensesPrefDesc =>
+      'Reminders before a recurring expense is charged.';
+
+  @override
+  String get reminderScheduleSection => 'Reminders';
+
+  @override
+  String get reminderHourTitle => 'Reminder time';
+
+  @override
+  String get reminderHourDesc => 'Time at which due-date reminders are sent.';
+
+  @override
+  String get quietHoursTitle => 'Quiet hours';
+
+  @override
+  String get quietHoursDesc => 'Pause notifications during a time range.';
+
+  @override
+  String get quietHoursStartLabel => 'Start';
+
+  @override
+  String get quietHoursEndLabel => 'End';
+
+  @override
+  String get quietHoursOvernightHint => 'The range continues past midnight.';
+
+  @override
+  String get exactAlarmsTitle => 'Exact alarms';
+
+  @override
+  String get exactAlarmsDesc =>
+      'Required to fire reminders at the exact time. Without them, Android may delay them by several hours.';
+
+  @override
+  String get exactAlarmsGranted => 'Allowed';
+
+  @override
+  String get exactAlarmsMissing => 'Not allowed';
+
+  @override
+  String get exactAlarmsAllow => 'Allow';
+
+  @override
+  String get notificationPreferencesLoadError =>
+      'Could not load your notification preferences.';
+
+  @override
+  String get notificationPreferencesSaveError =>
+      'Could not save the change. It has been reverted.';
+
+  @override
+  String get notificationPreferencesOfflineHint =>
+      'Values stored on this device, shown offline.';
+
+  @override
+  String get offlineBanner => 'Offline · local data';
+
+  @override
+  String offlineBannerWithDate(String date) {
+    return 'Offline · data from $date';
+  }
+
+  @override
+  String get notifChannelDebtsName => 'Debts and repayments';
+
+  @override
+  String get notifChannelDebtsDesc =>
+      'Shared debts, repayments and due date reminders.';
+
+  @override
+  String get notifChannelScheduledExpensesName => 'Scheduled expenses';
+
+  @override
+  String get notifChannelScheduledExpensesDesc =>
+      'Reminders for the expenses you scheduled.';
+
+  @override
+  String get notifChannelContactsName => 'Contacts';
+
+  @override
+  String get notifChannelContactsDesc =>
+      'Alerts when someone adds you to their contacts.';
+
+  @override
+  String get notifChannelJointAccountsName => 'Joint accounts';
+
+  @override
+  String get notifChannelJointAccountsDesc =>
+      'Invitations and activity on shared accounts.';
+
+  @override
+  String get notifChannelGeneralName => 'General';
+
+  @override
+  String get notifChannelGeneralDesc => 'FIMUS service notifications.';
+
+  @override
+  String get notifChannelAnnouncementsName => 'Announcements';
+
+  @override
+  String get notifChannelAnnouncementsDesc =>
+      'FIMUS news, tips and offers. Silent.';
+
+  @override
+  String get loadMore => 'Load more';
+
+  @override
+  String get notificationFilterContacts => 'Contacts';
+
+  @override
+  String get notificationFilterScheduled => 'Scheduled';
+
+  @override
+  String get notificationSectionEarlier => 'Earlier';
+
+  @override
+  String get notificationUnreadBadge => 'Unread';
+
+  @override
+  String get notificationReadBadge => 'Read';
+
+  @override
+  String get notificationTimeJustNow => 'Just now';
+
+  @override
+  String notificationTimeMinutesAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count min ago',
+      one: '$count min ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String notificationTimeHoursAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count h ago',
+      one: '$count h ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notificationDeleted => 'Notification deleted';
+
+  @override
+  String get undoAction => 'Undo';
+
+  @override
+  String get clearSelectionTooltip => 'Exit selection';
+
+  @override
+  String notificationsSelectedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count selected',
+      one: '$count selected',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notificationsEmptyForFilter =>
+      'No notifications in this category.';
+
+  @override
+  String get notificationsShowAllFilters => 'Show all notifications';
+
+  @override
+  String get displayMode => 'Display mode';
+
+  @override
+  String get displayModeSubtitle => 'Choose how the app looks';
+
+  @override
+  String get themeModeSystem => 'System';
+
+  @override
+  String get themeModeLight => 'Light';
+
+  @override
+  String get themeModeDark => 'Dark';
+
+  @override
+  String get notifChannelAlertsName => 'Finance alerts';
+
+  @override
+  String get notifChannelAlertsDesc =>
+      'Budget reached, low balance, data waiting to be sent';
+
+  @override
+  String get alertBudgetWarningTitle => 'Budget almost reached';
+
+  @override
+  String alertBudgetWarningBody(
+    String category,
+    int percent,
+    String spent,
+    String budget,
+    String currency,
+  ) {
+    return '$category: $percent% of the budget used ($spent / $budget $currency) this month.';
+  }
+
+  @override
+  String get alertBudgetReachedTitle => 'Budget exceeded';
+
+  @override
+  String alertBudgetReachedBody(
+    String category,
+    int percent,
+    String spent,
+    String budget,
+    String currency,
+  ) {
+    return '$category: $percent% of the budget used ($spent / $budget $currency) this month.';
+  }
+
+  @override
+  String get alertLowBalanceTitle => 'Low balance';
+
+  @override
+  String alertLowBalanceBody(
+    String account,
+    String balance,
+    String threshold,
+    String currency,
+  ) {
+    return '$account: $balance $currency, below your $threshold $currency threshold.';
+  }
+
+  @override
+  String get alertUnsyncedTitle => 'Unsynced data';
+
+  @override
+  String alertUnsyncedBody(int count, int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count entries have been waiting to be sent for $hours h. Sync to avoid losing them.',
+      one:
+          '1 entry has been waiting to be sent for $hours h. Sync to avoid losing it.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get localAlertsSection => 'Custom alerts';
+
+  @override
+  String get alertsLocalOnlyNotice =>
+      'These settings are stored on this device only: they do not follow your account to another phone.';
+
+  @override
+  String get alertBudgetSwitchTitle => 'Budget threshold';
+
+  @override
+  String get alertBudgetSwitchDesc =>
+      'Warn you at 80% and then 100% of a category monthly budget';
+
+  @override
+  String get alertLowBalanceSwitchTitle => 'Low balance';
+
+  @override
+  String get alertLowBalanceSwitchDesc =>
+      'Warn you when an account drops below its threshold';
+
+  @override
+  String get alertUnsyncedSwitchTitle => 'Unsynced data';
+
+  @override
+  String get alertUnsyncedSwitchDesc =>
+      'Warn you when entries have been waiting too long to be sent';
+
+  @override
+  String get alertBudgetsManageTitle => 'Monthly budgets by category';
+
+  @override
+  String get alertThresholdsManageTitle => 'Balance thresholds by account';
+
+  @override
+  String get alertTrackedNone => 'Nothing tracked yet';
+
+  @override
+  String alertBudgetsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count categories tracked',
+      one: '1 category tracked',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String alertThresholdsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count accounts tracked',
+      one: '1 account tracked',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get alertUnsyncedDelayTitle => 'Delay before alerting';
+
+  @override
+  String alertUnsyncedDelayValue(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get alertBudgetsDialogTitle => 'Monthly budgets';
+
+  @override
+  String get alertThresholdsDialogTitle => 'Low balance thresholds';
+
+  @override
+  String get alertBudgetFieldLabel => 'Monthly budget';
+
+  @override
+  String get alertThresholdFieldLabel => 'Alert threshold';
+
+  @override
+  String get alertValueNotSet => 'Not set';
+
+  @override
+  String get alertNoCategories => 'No expense category available.';
+
+  @override
+  String get alertNoAccounts => 'No account available.';
+
+  @override
+  String get alertInvalidAmount => 'Enter a valid amount.';
+
+  @override
+  String get alertResetStateTitle => 'Reset alerts already sent';
+
+  @override
+  String get alertResetStateDesc =>
+      'Allow alerts you already received this month to fire again';
+
+  @override
+  String get alertResetStateDone => 'Alerts reset';
+
+  @override
+  String get savingInProgress => 'Saving...';
+
+  @override
+  String get savedLocallyWillSync =>
+      'The entry was saved on your phone. It will sync as soon as your internet connection is back.';
+
+  @override
+  String get genericErrorRetry => 'Something went wrong. Please try again.';
+
+  @override
+  String get debtOpCollectRepaymentTitle => 'Receive a repayment';
+
+  @override
+  String get debtOpRepayDebtTitle => 'Repay a debt';
+
+  @override
+  String get debtOpNewBorrowTitle => 'New borrowing (Debt)';
+
+  @override
+  String get debtOpNewLoanTitle => 'New loan (Receivable)';
+
+  @override
+  String debtOpCollectFromHint(String name) {
+    return 'Receive a repayment from $name';
+  }
+
+  @override
+  String debtOpRepayToHint(String name) {
+    return 'Repay the debt owed to $name';
+  }
+
+  @override
+  String get debtOpSettledSuffix => '(Settled)';
+
+  @override
+  String debtOpTotalToRepay(String amount, String currency) {
+    return 'Total to repay: $amount $currency';
+  }
+
+  @override
+  String get receivableInterestSimulator =>
+      'Receivable with interest (Simulator)';
+
+  @override
+  String get debtOpNoCashFlowImpact =>
+      'This entry is for reference only: it affects neither your accounts nor your statistics.';
+
+  @override
+  String get debtOpNoLinkableAccount => 'No account available to link to.';
+
+  @override
+  String get pleaseChooseAccount => 'Please choose an account';
+
+  @override
+  String get debtOpSetDueDate => 'Set a due date';
+
+  @override
+  String get debtOpSetDueDateDesc => 'Recommended repayment deadline';
+
+  @override
+  String get debtOpDueDatePlanned => 'Planned due date';
+
+  @override
+  String get selectDate => 'Select a date';
+
+  @override
+  String get frequencyMonthly => 'Monthly';
+
+  @override
+  String get frequencyWeekly => 'Weekly';
+
+  @override
+  String get frequencyDaily => 'Daily';
+
+  @override
+  String get frequencyAnnual => 'Yearly';
+
+  @override
+  String get debtBadgeSettled => 'Settled';
+
+  @override
+  String get debtBadgeToRepay => 'Debt to repay';
+
+  @override
+  String get debtBadgeToCollect => 'Receivable to collect';
+
+  @override
+  String get filterLabel => 'Filter:';
+
+  @override
+  String get validate => 'Confirm';
+
+  @override
+  String get debtKind => 'Debt';
+
+  @override
+  String get receivableKind => 'Receivable';
+
+  @override
+  String get createdByMe => 'Me';
+
+  @override
+  String get createdByMember => 'Member';
+
+  @override
+  String get debtNewOperationTitle => 'New debt entry';
+
+  @override
+  String get debtSelectTitle => 'Select a debt';
+
+  @override
+  String get someone => 'Someone';
+
+  @override
+  String debtPendingInvitation(String name, String title) {
+    return '$name has linked you to a debt: $title';
+  }
+
+  @override
+  String debtDueDateOverdue(String date) {
+    return 'Overdue since $date';
+  }
+
+  @override
+  String debtDueDatePlanned(String date) {
+    return 'Due on $date';
+  }
+
+  @override
+  String debtDueDateValue(String date) {
+    return 'Due: $date';
+  }
+
+  @override
+  String get selectPeriod => 'Select a period';
+
+  @override
+  String get selectPeriodMax6Months => 'Select a period (max 6 months)';
+
+  @override
+  String operationsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '$count entry',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exampleLabel => 'Example:';
+
+  @override
+  String get ussdQuickInsertChips => 'Quick insert chips:';
+
+  @override
+  String get ussdPreviewTitle => 'Preview of the run screen';
+
+  @override
+  String ussdPreviewEmptyHint(String first, String second) {
+    return 'Enter a USSD code containing variables such as $first or $second to generate the preview.';
+  }
+
+  @override
+  String get ussdAmountToTransferLabel => 'Amount to transfer';
+
+  @override
+  String get productPhotoTitle => 'Product photo';
+
+  @override
+  String get takePhoto => 'Take a photo';
+
+  @override
+  String get chooseFromGallery => 'Choose from gallery';
+
+  @override
+  String get deletePhoto => 'Remove photo';
+
+  @override
+  String get addPhoto => 'Add photo';
+
+  @override
+  String get productUpdated => 'Product updated';
+
+  @override
+  String get productSaved => 'Product saved successfully';
+
+  @override
+  String get editProductTitle => 'Edit product';
+
+  @override
+  String get newProductTitle => 'New product';
+
+  @override
+  String get productNameLabel => 'Product name *';
+
+  @override
+  String get productNameHint => 'E.g. 25 kg rice bag, Phone…';
+
+  @override
+  String get productNameRequired => 'Please enter the product name';
+
+  @override
+  String productPriceLabel(String currency) {
+    return 'Selling price ($currency) *';
+  }
+
+  @override
+  String get productPriceRequired => 'Please enter the price';
+
+  @override
+  String get productPriceInvalid => 'Invalid price';
+
+  @override
+  String get productDescriptionLabel => 'Description (optional)';
+
+  @override
+  String get productDescriptionHint => 'Details, size, colour, packaging…';
+
+  @override
+  String get updateAction => 'UPDATE';
+
+  @override
+  String get saveProductAction => 'SAVE PRODUCT';
+
+  @override
+  String get staffUpdated => 'Team member updated';
+
+  @override
+  String get staffAdded => 'Team member added successfully';
+
+  @override
+  String get editStaffTitle => 'Edit team member';
+
+  @override
+  String get newStaffTitle => 'New team member';
+
+  @override
+  String get staffNameLabel => 'First & last name *';
+
+  @override
+  String get staffNameHint => 'E.g. Amadou Diallo';
+
+  @override
+  String get staffNameRequired => 'Please enter the name';
+
+  @override
+  String get staffRoleLabel => 'Role / Position';
+
+  @override
+  String get staffRoleHint => 'E.g. Accountant, Sales rep, Technician…';
+
+  @override
+  String get phoneNumberLabel => 'Phone number';
+
+  @override
+  String get staffPhoneHint => 'E.g. +221 77 123 45 67';
+
+  @override
+  String get emailAddressLabel => 'Email address';
+
+  @override
+  String get staffEmailHint => 'E.g. amadou@company.com';
+
+  @override
+  String staffSalaryLabel(String currency) {
+    return 'Monthly pay ($currency)';
+  }
+
+  @override
+  String get addStaffAction => 'ADD TEAM MEMBER';
+
+  @override
+  String get deleteProductTitle => 'Delete this product?';
+
+  @override
+  String deleteProductConfirm(String name) {
+    return 'Do you really want to delete \"$name\"?';
+  }
+
+  @override
+  String productDeleted(String name) {
+    return 'Product \"$name\" deleted';
+  }
+
+  @override
+  String get searchProductHint => 'Search for a product…';
+
+  @override
+  String productsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count products',
+      one: '$count product',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get noProductFound => 'No product found';
+
+  @override
+  String get emptyCatalog => 'Your catalogue is empty';
+
+  @override
+  String get trySearchAgain => 'Try another search.';
+
+  @override
+  String get emptyCatalogHint => 'Save your items to handle sales quickly.';
+
+  @override
+  String get addFirstProduct => 'Add my first product';
+
+  @override
+  String get deleteStaffTitle => 'Remove this team member?';
+
+  @override
+  String deleteStaffConfirm(String name) {
+    return 'Do you really want to remove \"$name\" from your team?';
+  }
+
+  @override
+  String staffDeleted(String name) {
+    return 'Team member \"$name\" removed';
+  }
+
+  @override
+  String get searchStaffHint => 'Search for a team member…';
+
+  @override
+  String staffCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count team members',
+      one: '$count team member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get noStaffFound => 'No team member found';
+
+  @override
+  String get noStaffRecorded => 'No team member yet';
+
+  @override
+  String get emptyStaffHint =>
+      'Organise your team, their roles and work contacts.';
+
+  @override
+  String get addStaffMember => 'Add a team member';
+
+  @override
+  String get googleSignInInterrupted =>
+      'Sign-in was interrupted, please try again.';
+
+  @override
+  String get googleSignInNoAccount =>
+      'No Google account found. Add one or use email and password.';
+
+  @override
+  String get googleSignInUnavailable =>
+      'Configuration unavailable. Please try again later.';
+
+  @override
+  String get googleSignInUpdatePlayServices =>
+      'Please update Google Play Services.';
+
+  @override
+  String get googleSignInAccountChanged =>
+      'Account change detected, please try again.';
+
+  @override
+  String get googleSignInGenericError =>
+      'Google sign-in failed. Please try again.';
+
+  @override
+  String get forgotPasswordSent =>
+      'A new password has been sent to your email address. Check your spam folder if it is not in your inbox.';
+
+  @override
+  String get loginSubtitle => 'Sign in to manage your finances';
+
+  @override
+  String get loginAction => 'SIGN IN';
+
+  @override
+  String get orSeparator => 'OR';
+
+  @override
+  String get noAccountQuestion => 'Don\'t have an account? ';
+
+  @override
+  String get haveAccountQuestion => 'Already have an account? ';
+
+  @override
+  String get registerAccountAction => 'CREATE MY ACCOUNT';
+
+  @override
+  String get registerSubtitle => 'Create your account in seconds';
+
+  @override
+  String get registerSuccessEmailSent =>
+      'Account created! Your password has been emailed to you so you won\'t forget it.';
+
+  @override
+  String get startAction => 'GET STARTED';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String onboardingStepProgress(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get onboardingCountryHint =>
+      'FIMUS adapts your operators and USSD codes to your location.';
+
+  @override
+  String get onboardingProfileTypeHint =>
+      'Pick how you will use the app so we can tailor the interface.';
+
+  @override
+  String get profileTypePersonal => 'Personal';
+
+  @override
+  String get profileTypeSmallBusiness => 'Small shop';
+
+  @override
+  String get profileTypeSmallBusinessShort => 'Shop';
+
+  @override
+  String get profileTypeSmallBusinessDesc => 'Sales & Products';
+
+  @override
+  String get profileTypeCompany => 'Company';
+
+  @override
+  String get profileTypeCompanyDesc => 'Services & Team';
+
+  @override
+  String get profileTypeKiosk => 'Kiosk';
+
+  @override
+  String get profileTypeKioskDesc => 'Money transfer';
+
+  @override
+  String get lockTooManyAttemptsReauth =>
+      'Too many attempts. Sign in again with your password.';
+
+  @override
+  String lockTooManyAttemptsRetryIn(String delay) {
+    return 'Too many attempts. Try again in $delay.';
+  }
+
+  @override
+  String get verifying => 'Checking…';
+
+  @override
+  String lockIncorrectPinAttemptsLeft(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Wrong PIN · $count attempts before lockout',
+      one: 'Wrong PIN · $count attempt before lockout',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get enterYourPin => 'Enter your PIN';
+
+  @override
+  String get securityTitle => 'Security';
+
+  @override
+  String get lockFullReauthBody =>
+      'Too many wrong PINs were entered. For your security, sign in again with your password. Your local data is kept.';
+
+  @override
+  String get reconnectAction => 'Sign in again';
+
+  @override
+  String get lockForgotPinBody =>
+      'For security reasons, if you have forgotten your PIN you must sign out and sign in again. Your synced local data will be kept.';
+
+  @override
+  String get ussdLoadingCodes => 'Loading USSD codes…';
+
+  @override
+  String get ussdNoOperatorAvailable => 'No operator available';
+
+  @override
+  String get ussdSelectCountryOrAddOperator =>
+      'Select a country or add an operator';
+
+  @override
+  String get ussdAddOperatorSubtitle =>
+      'Set up a new mobile operator for your USSD codes';
+
+  @override
+  String get ussdHiddenBadge => 'Hidden';
+
+  @override
+  String get ussdHideOperation => 'Hide this operation';
+
+  @override
+  String get ussdShowOperation => 'Show this operation';
+
+  @override
+  String get navProducts => 'Products';
+
+  @override
+  String get navStaff => 'Team';
+
+  @override
+  String get changeProfileAction => 'Change profile';
+
+  @override
+  String get profileTypeChooseNew => 'Choose a new profile';
+
+  @override
+  String get profileTypeChangeWarningOnce =>
+      'Warning: this change can only be made once and is final.';
+
+  @override
+  String get profileChangeToSmallBusinessDesc =>
+      'Switching to the Small shop profile gives you the product catalogue to record and track the items you sell.';
+
+  @override
+  String get profileChangeToCompanyDesc =>
+      'Switching to the Company profile gives you the Staff module to manage your team members, roles and work contacts.';
+
+  @override
+  String get profileChangeToKioskDesc =>
+      'Switching to the Kiosk profile gives you Merchant/Agent USSD codes and Mobile Money cash-handling tools.';
+
+  @override
+  String get announcementFallback1 =>
+      'Set up your favourite USSD codes to run your transactions in a single tap!';
+
+  @override
+  String get announcementFallback2 =>
+      'You can now add or remove your own USSD operators with ease.';
+
+  @override
+  String get announcementFallback3 =>
+      'Budget tracking: follow your daily spending and stay in control thanks to our detailed reports.';
+
+  @override
+  String get notifyWeeklyDigestPref => 'Weekly digest';
+
+  @override
+  String get notifyWeeklyDigestPrefDesc =>
+      'A summary of your spending for the week, sent every Sunday.';
+
+  @override
+  String get newLoginConfirmTitle => 'Wasn\'t this you?';
+
+  @override
+  String get newLoginConfirmBody =>
+      'All other sessions on your account will be signed out. This device will stay signed in.';
+
+  @override
+  String newLoginConfirmBodyWithDetails(String details) {
+    return 'Login detected: $details.\n\nAll other sessions on your account will be signed out. This device will stay signed in.';
+  }
+
+  @override
+  String get newLoginConfirmAction => 'This wasn\'t me';
+
+  @override
+  String revokeOtherSessionsDone(int sessions, int devices) {
+    return '$sessions session(s) and $devices device(s) signed out. Change your password if you don\'t recognize this login.';
+  }
+
+  @override
+  String get revokeOtherSessionsError =>
+      'Revocation failed. Check your connection, then try again from the security settings.';
 }

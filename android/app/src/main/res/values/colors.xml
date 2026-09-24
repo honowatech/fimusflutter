@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Couleur d'accent des notifications FCM (teinte de l'icône de statut),
+         identique à la couleur primaire de l'application (#07929C). -->
+    <color name="fimus_notification_color">#FF07929C</color>
+</resources>

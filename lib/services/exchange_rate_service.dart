@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/api_client.dart';
 import '../utils/api_config.dart';
 
 /// Service responsible for fetching, caching, and providing exchange rates.
@@ -13,11 +14,7 @@ class ExchangeRateService {
   static const String _cacheKey = 'cached_exchange_rates';
   static const String _cacheTimestampKey = 'exchange_rates_timestamp';
 
-  final Dio _dio = Dio();
-
-  ExchangeRateService() {
-    _dio.options.headers['Accept'] = 'application/json';
-  }
+  Dio get _dio => ApiClient.instance;
 
   /// Fetches rates from the backend and caches them locally.
   ///

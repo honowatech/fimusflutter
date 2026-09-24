@@ -4,12 +4,20 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import 'main_screen.dart';
+import '../utils/app_theme.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+/// Fonds de SnackBar : teinte claire d'origine conservee, jeton semantique en
+/// sombre (les `Colors.*` bruts y sont trop satures).
+Color _snackBg(BuildContext context, {required Color light, required bool isError}) {
+  final cs = Theme.of(context).colorScheme;
+  return cs.tone(light: light, dark: isError ? cs.error : cs.success);
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
@@ -68,23 +76,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Compte créé ! Votre mot de passe vous a été envoyé par email afin de ne pas l\'oublier.',
-            ),
-            duration: Duration(seconds: 5),
-            backgroundColor: Colors.green,
+            content: Text(l10n.registerSuccessEmailSent),
+            duration: const Duration(seconds: 5),
+            backgroundColor:
+                _snackBg(context, light: Colors.green, isError: false),
           ),
         );
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
+          MaterialPageRoute(builder: (_) => MainScreen()),
           (route) => false,
         );
       }
     } catch (e) {
+      // Détail technique gardé dans les logs, message générique à l'écran.
+      debugPrint('RegisterScreen._register a échoué : $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(l10n.genericErrorRetry),
+            backgroundColor:
+                _snackBg(context, light: Colors.red, isError: true),
+          ),
         );
       }
     } finally {
@@ -101,6 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       appBar: AppBar(
         title: Text(l10n.createAccount),
         centerTitle: true,
+        // Transparent volontaire : l'AppBar laisse voir le degrade du Container.
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -123,13 +137,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Image.asset(
-                    'assets/images/logo.png',
-                    height: 60,
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    'Bienvenue sur FIMUS',
+                    l10n.onboardingWelcome,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -137,7 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   Text(
-                    'Créez votre compte en quelques secondes',
+                    l10n.registerSubtitle,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -268,15 +277,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       foregroundColor: theme.colorScheme.onPrimary,
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2),
+                              // Pose sur le bouton rempli en `primary`.
+                              color: theme.colorScheme.onPrimary,
+                              strokeWidth: 2,
+                            ),
                           )
-                        : const Text(
-                            "CRÉER MON COMPTE",
-                            style: TextStyle(
+                        : Text(
+                            l10n.registerAccountAction,
+                            style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1),
@@ -287,12 +299,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed: () => Navigator.pop(context),
                     child: RichText(
                       text: TextSpan(
-                        text: "Vous avez déjà un compte ? ",
+                        text: l10n.haveAccountQuestion,
                         style:
                             TextStyle(color: theme.colorScheme.onSurface),
                         children: [
                           TextSpan(
-                            text: "Se connecter",
+                            text: l10n.login,
                             style: TextStyle(
                               color: theme.colorScheme.primary,
                               fontWeight: FontWeight.bold,
@@ -338,11 +350,12 @@ class _TypeCard extends StatelessWidget {
           border: Border.all(
             color: isSelected
                 ? theme.colorScheme.primary
-                : Colors.grey.shade300,
+                : theme.colorScheme.outlineVariant,
             width: isSelected ? 2 : 1,
           ),
           color: isSelected
               ? theme.colorScheme.primary.withValues(alpha: 0.08)
+              // Non selectionne : aucun fond (transparent volontaire).
               : Colors.transparent,
         ),
         child: Column(
@@ -352,7 +365,7 @@ class _TypeCard extends StatelessWidget {
               size: 32,
               color: isSelected
                   ? theme.colorScheme.primary
-                  : Colors.grey.shade500,
+                  : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 8),
             Text(

@@ -9,6 +9,7 @@ import '../models/contact.dart';
 import 'add_debt_operation_screen.dart';
 import 'debt_detail_screen.dart';
 import 'package:intl/intl.dart';
+import '../utils/app_theme.dart';
 import '../utils/formatters.dart';
 import '../services/sync_service.dart';
 
@@ -57,19 +58,21 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 0,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(text: 'Dashboard'),
-            Tab(text: 'Historique'),
+          labelColor: scheme.onPrimary,
+          unselectedLabelColor: scheme.onPrimary.withValues(alpha: 0.7),
+          indicatorColor: scheme.onPrimary,
+          tabs: [
+            Tab(text: l10n.dashboard),
+            Tab(text: l10n.history),
           ],
         ),
       ),
@@ -84,6 +87,8 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
   }
 
   void handleFabPress() {
+    final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -94,20 +99,20 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.all(16.0),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  'Nouvelle opération de dette',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  l10n.debtNewOperationTitle,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.red.shade100,
-                  child: Icon(Icons.arrow_downward, color: Colors.red.shade900),
+                  backgroundColor: scheme.expense.withValues(alpha: 0.15),
+                  child: Icon(Icons.arrow_downward, color: scheme.expense),
                 ),
-                title: const Text('Emprunt'),
-                subtitle: const Text('Enregistrer une dette que vous avez contractée'),
+                title: Text(l10n.borrowAction),
+                subtitle: Text(l10n.borrowSubtitle),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final result = await Navigator.push(
@@ -123,11 +128,11 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
               ),
               ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.green.shade100,
-                  child: Icon(Icons.arrow_upward, color: Colors.green.shade900),
+                  backgroundColor: scheme.income.withValues(alpha: 0.15),
+                  child: Icon(Icons.arrow_upward, color: scheme.income),
                 ),
-                title: const Text('Créance'),
-                subtitle: const Text('L\'argent que vous percevrez'),
+                title: Text(l10n.lendAction),
+                subtitle: Text(l10n.lendSubtitle),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final result = await Navigator.push(
@@ -143,10 +148,10 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
               ),
               ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.blue.shade100,
-                  child: Icon(Icons.payments_outlined, color: Colors.blue.shade900),
+                  backgroundColor: scheme.infoContainer,
+                  child: Icon(Icons.payments_outlined, color: scheme.onInfoContainer),
                 ),
-                title: const Text('Remboursement'),
+                title: Text(l10n.repaymentAction),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showDebtSelectionSheet(context);
@@ -161,6 +166,8 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
   }
 
   void _showDebtSelectionSheet(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
     final provider = Provider.of<ExpenseProvider>(context, listen: false);
     final contacts = Provider.of<ContactProvider>(context, listen: false).contacts;
     final currency = Provider.of<ProfileProvider>(context, listen: false).profile.currency;
@@ -169,7 +176,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
     if (tags.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Aucune dette ou créance enregistrée pour le moment.'),
+          content: Text(l10n.noDebtOrReceivableRecorded),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -190,22 +197,24 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
           maxChildSize: 0.9,
           minChildSize: 0.4,
           builder: (_, controller) {
-            return Column(
+            return SafeArea(
+              top: false,
+              child: Column(
               children: [
                 Container(
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: scheme.outlineVariant,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Text(
-                    'Sélectionner une dette',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    l10n.debtSelectTitle,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
                 Expanded(
@@ -215,29 +224,33 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                     itemBuilder: (context, index) {
                       final tag = tags[index];
                       final balance = provider.getDebtBalance(tag);
-                      final isDebt = balance > 0;
+                      final isDebt = balance < 0;
                       final isSettled = balance == 0;
                       final displayName = _getDisplayNameForTag(tag, contacts);
 
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundColor: isSettled
-                              ? Colors.grey.shade200
-                              : (isDebt ? Colors.red.shade50 : Colors.green.shade50),
+                              ? scheme.surfaceContainerHighest
+                              : (isDebt
+                                  ? scheme.expense.withValues(alpha: 0.12)
+                                  : scheme.income.withValues(alpha: 0.12)),
                           child: Icon(
                             isSettled
                                 ? Icons.check_circle_outline
                                 : (isDebt ? Icons.arrow_downward : Icons.arrow_upward),
                             color: isSettled
-                                ? Colors.grey
-                                : (isDebt ? Colors.red.shade700 : Colors.green.shade700),
+                                ? scheme.onSurfaceVariant
+                                : (isDebt ? scheme.expense : scheme.income),
                           ),
                         ),
                         title: Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text(
                           isSettled
-                              ? 'Soldé'
-                              : (isDebt ? 'Dette à rembourser' : 'Créance à encaisser'),
+                              ? l10n.debtBadgeSettled
+                              : (isDebt
+                                  ? l10n.debtBadgeToRepay
+                                  : l10n.debtBadgeToCollect),
                         ),
                         trailing: Text(
                           '${balance.abs().formatAmountDouble()} $currency',
@@ -245,8 +258,8 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                             color: isSettled
-                                ? Colors.grey
-                                : (isDebt ? Colors.red.shade700 : Colors.green.shade700),
+                                ? scheme.onSurfaceVariant
+                                : (isDebt ? scheme.expense : scheme.income),
                           ),
                         ),
                         onTap: () async {
@@ -254,7 +267,10 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => AddDebtOperationScreen(initialTag: tag),
+                              builder: (_) => AddDebtOperationScreen(
+                                initialTag: tag,
+                                initialAmount: balance != 0 ? balance.abs() : null,
+                              ),
                             ),
                           );
                           if (result == true) {
@@ -266,6 +282,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                   ),
                 ),
               ],
+            ),
             );
           },
         );
@@ -276,6 +293,25 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
 
   Widget _buildDashboardTab(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
+    // Cartouches de synthèse : teintes d'origine en clair (un fond plein
+    // rouge/vert très pâle), voile coloré sur la surface sombre en sombre.
+    final debtCardBackground = scheme.tone(
+      light: const Color(0xFFFFCDD2), // Colors.red.shade100
+      dark: scheme.expense.withValues(alpha: 0.18),
+    );
+    final debtCardText = scheme.tone(
+      light: const Color(0xFFB71C1C), // Colors.red.shade900
+      dark: scheme.expense,
+    );
+    final receivableCardBackground = scheme.tone(
+      light: const Color(0xFFC8E6C9), // Colors.green.shade100
+      dark: scheme.income.withValues(alpha: 0.18),
+    );
+    final receivableCardText = scheme.tone(
+      light: const Color(0xFF1B5E20), // Colors.green.shade900
+      dark: scheme.income,
+    );
     final provider = Provider.of<ExpenseProvider>(context);
     final currency = Provider.of<ProfileProvider>(context).profile.currency;
     
@@ -304,11 +340,11 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
               Expanded(
                 child: _buildSummaryCard(
                   title: l10n.totalDebts,
-                  subtitle: 'À rembourser',
+                  subtitle: l10n.toRepay,
                   amount: totalDebts,
                   currency: currency,
-                  color: Colors.red.shade100,
-                  textColor: Colors.red.shade900,
+                  color: debtCardBackground,
+                  textColor: debtCardText,
                   icon: Icons.arrow_downward,
                 ),
               ),
@@ -316,11 +352,11 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
               Expanded(
                 child: _buildSummaryCard(
                   title: l10n.totalReceivables,
-                  subtitle: 'Total à percevoir',
+                  subtitle: l10n.totalToCollect,
                   amount: totalReceivables,
                   currency: currency,
-                  color: Colors.green.shade100,
-                  textColor: Colors.green.shade900,
+                  color: receivableCardBackground,
+                  textColor: receivableCardText,
                   icon: Icons.arrow_upward,
                 ),
               ),
@@ -336,7 +372,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(32.0),
-                child: Text('Aucune opération récente', style: TextStyle(color: Colors.grey.shade600)),
+                child: Text(l10n.noRecentOperation, style: TextStyle(color: scheme.onSurfaceVariant)),
               ),
             )
           else
@@ -357,6 +393,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
 
   Widget _buildListTab(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
     final provider = Provider.of<ExpenseProvider>(context);
     final currency = Provider.of<ProfileProvider>(context).profile.currency;
     final contacts = Provider.of<ContactProvider>(context).contacts;
@@ -371,9 +408,9 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
         case 'active':
           return balance != 0;
         case 'debts':
-          return balance > 0;
-        case 'receivables':
           return balance < 0;
+        case 'receivables':
+          return balance > 0;
         case 'settled':
           return balance == 0;
         default:
@@ -390,8 +427,8 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Filtre :',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                l10n.filterLabel,
+                style: TextStyle(fontWeight: FontWeight.bold, color: scheme.onSurfaceVariant),
               ),
               DropdownButton<String>(
                 value: _listFilter,
@@ -430,7 +467,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                       SizedBox(
                         height: MediaQuery.of(context).size.height * 0.5,
                         child: Center(
-                          child: Text(l10n.noDebtTags, style: TextStyle(color: Colors.grey.shade600)),
+                          child: Text(l10n.noDebtTags, style: TextStyle(color: scheme.onSurfaceVariant)),
                         ),
                       ),
                     ],
@@ -442,7 +479,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                     itemBuilder: (context, index) {
                       final tag = tags[index];
                       final balance = provider.getDebtBalance(tag);
-                      final isDebt = balance > 0;
+                      final isDebt = balance < 0;
                       final isSettled = balance == 0;
 
                       return Card(
@@ -456,7 +493,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                              color: isSettled ? Colors.grey : (isDebt ? Colors.red : Colors.green),
+                              color: isSettled ? scheme.onSurfaceVariant : (isDebt ? scheme.expense : scheme.income),
                             ),
                           ),
                           onTap: () {
@@ -538,8 +575,15 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
   Widget _buildTransactionTile(BuildContext context, Expense op, String currency) {
     final l10n = AppLocalizations.of(context)!;
     final contacts = Provider.of<ContactProvider>(context).contacts;
+    final scheme = Theme.of(context).colorScheme;
     final isIncome = op.type == 'income';
-    final amountColor = isIncome ? Colors.green : Colors.red;
+    final amountColor = isIncome ? scheme.income : scheme.expense;
+    // Badge « Mémo » : l'ambre clair d'origine n'a pas d'équivalent exact,
+    // on le fige en clair et on bascule sur le conteneur d'avertissement en sombre.
+    final memoBackground = scheme.tone(
+      light: const Color(0xFFFFECB3), // Colors.amber.shade100
+      dark: scheme.warningContainer,
+    );
     final sign = isIncome ? '+' : '-';
     final dateFormat = DateFormat('dd/MM/yyyy');
     final displayName = op.debtTag != null ? _getDisplayNameForTag(op.debtTag!, contacts) : '';
@@ -549,7 +593,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
       elevation: 1,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: amountColor.withOpacity(0.1),
+          backgroundColor: amountColor.withValues(alpha: 0.1),
           child: Icon(
             isIncome ? Icons.arrow_downward : Icons.arrow_upward,
             color: amountColor,
@@ -565,15 +609,15 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                 margin: const EdgeInsets.only(top: 4),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
+                  color: memoBackground,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text('Mémo', style: TextStyle(fontSize: 10, color: Colors.amber.shade900)),
+                child: Text(l10n.memo, style: TextStyle(fontSize: 10, color: scheme.onWarningContainer)),
               ),
             if (op.creatorName != null && op.creatorName!.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(top: 4),
-                child: Text(l10n.createdBy(op.creatorName!), style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.blueGrey)),
+                child: Text(l10n.createdBy(op.creatorName!), style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: scheme.onSurfaceVariant)),
               ),
           ],
         ),
@@ -590,6 +634,16 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
   }
 
   Widget _buildPendingInvitations(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
+    // Bouton « Valider » : vert d'origine en clair, vert plus dense en sombre ;
+    // le libellé et l'icône restent blancs (le fond est toujours saturé), sinon
+    // le `onPrimary` sombre du thème les rendrait illisibles.
+    final validateBackground = scheme.tone(
+      light: const Color(0xFF4CAF50), // Colors.green
+      dark: const Color(0xFF2E7D32),
+    );
+    const onValidate = Colors.white;
     final provider = Provider.of<ExpenseProvider>(context);
     
     final pendingExpenses = provider.expenses.where((e) => e.debtStatus == 'pending' && e.debtorUserId == provider.currentUserId).toList();
@@ -598,12 +652,12 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: pendingExpenses.map((expense) {
-        final creatorName = expense.creatorName ?? 'Quelqu\'un';
+        final creatorName = expense.creatorName ?? l10n.someone;
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Colors.orange.shade50,
+          color: scheme.warningContainer,
           shape: RoundedRectangleBorder(
-            side: BorderSide(color: Colors.orange.shade300, width: 1),
+            side: BorderSide(color: scheme.warningOutline, width: 1),
             borderRadius: BorderRadius.circular(8)
           ),
           child: Padding(
@@ -613,12 +667,12 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
               children: [
                 Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.orange.shade700),
+                    Icon(Icons.info_outline, color: scheme.onWarningContainer),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '$creatorName vous a associé à une dette : ${expense.title}',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                        l10n.debtPendingInvitation(creatorName, expense.title),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: scheme.onWarningContainer),
                       ),
                     ),
                   ],
@@ -628,15 +682,18 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton.icon(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      label: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                      icon: Icon(Icons.close, color: scheme.error),
+                      label: Text(l10n.delete, style: TextStyle(color: scheme.error)),
                       onPressed: () => _confirmRejectDebt(context, expense),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
-                      icon: const Icon(Icons.check, color: Colors.white),
-                      label: const Text('Valider'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      icon: const Icon(Icons.check, color: onValidate),
+                      label: Text(l10n.validate),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: validateBackground,
+                        foregroundColor: onValidate,
+                      ),
                       onPressed: () => _acceptDebt(context, expense),
                     ),
                   ],
@@ -656,15 +713,17 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
   }
 
   void _confirmRejectDebt(BuildContext context, Expense expense) {
+    final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Refuser la dette'),
-        content: const Text('Êtes-vous sûr de vouloir supprimer cette dette ? Cette action est irréversible et retirera votre nom de cette opération.'),
+        title: Text(l10n.rejectDebt),
+        content: Text(l10n.rejectDebtConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -672,7 +731,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
               final provider = Provider.of<ExpenseProvider>(context, listen: false);
               provider.deleteExpense(expense.id);
             },
-            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.delete, style: TextStyle(color: scheme.error)),
           ),
         ],
       ),

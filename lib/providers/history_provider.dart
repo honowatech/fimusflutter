@@ -22,6 +22,13 @@ class HistoryProvider with ChangeNotifier {
   }
 
 
+  /// Vide l'état en mémoire (déconnexion) : la base locale est purgée par
+  /// ailleurs, l'UI ne doit plus afficher l'historique de l'ancien compte.
+  void clear() {
+    _history = [];
+    notifyListeners();
+  }
+
   Future<void> addHistoryEntry(UssdHistory entry) async {
     final db = await DatabaseService.instance.database;
     await db.insert('ussd_history', entry.toDbMap());

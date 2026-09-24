@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 11 et antérieurs (android:fullBackupContent).
+    Application financière : aucune donnée locale (base SQLite des opérations,
+    préférences, cache) ne doit sortir de l'appareil. La sauvegarde est déjà
+    désactivée globalement par android:allowBackup="false" ; ces règles sont
+    un filet de sécurité si elle venait à être réactivée.
+-->
+<full-backup-content>
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
+</full-backup-content>

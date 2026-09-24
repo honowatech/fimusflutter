@@ -9,6 +9,7 @@ import '../providers/account_provider.dart';
 import '../providers/contact_provider.dart';
 import '../providers/profile_provider.dart';
 import '../services/sync_service.dart';
+import '../utils/app_theme.dart';
 import '../utils/formatters.dart';
 import 'add_contact_bottom_sheet.dart';
 
@@ -27,7 +28,8 @@ class AddAccountBottomSheet extends StatefulWidget {
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom +
+              MediaQuery.of(ctx).padding.bottom,
         ),
         child: AddAccountBottomSheet(onSuccess: onSuccess, existingAccount: existingAccount),
       ),
@@ -44,8 +46,7 @@ class _AddAccountBottomSheetState extends State<AddAccountBottomSheet> {
   final _balanceController = TextEditingController();
   
   bool _isLoading = false;
-  String? _selectedContactId;
-  String? _selectedContactName;
+  final List<Contact> _selectedContacts = [];
 
   @override
   void initState() {
@@ -53,15 +54,21 @@ class _AddAccountBottomSheetState extends State<AddAccountBottomSheet> {
     if (widget.existingAccount != null) {
       _nameController.text = widget.existingAccount!.name;
       _balanceController.text = widget.existingAccount!.balance == 0.0 ? '' : widget.existingAccount!.balance.formatAmount();
-      if (widget.existingAccount!.ownerId != null) {
-        _selectedContactId = widget.existingAccount!.ownerId.toString();
-        _selectedContactName = widget.existingAccount!.ownerName;
-      }
     }
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<ContactProvider>().fetchContacts();
+        context.read<ContactProvider>().fetchContacts().then((_) {
+          if (widget.existingAccount != null && widget.existingAccount!.ownerId != null && mounted) {
+            final contacts = context.read<ContactProvider>().contacts;
+            final matched = contacts.where((c) => c.id == widget.existingAccount!.ownerId).toList();
+            if (matched.isNotEmpty && !_selectedContacts.any((c) => c.id == matched.first.id)) {
+              setState(() {
+                _selectedContacts.add(matched.first);
+              });
+            }
+          }
+        });
       }
     });
   }
@@ -71,6 +78,191 @@ class _AddAccountBottomSheetState extends State<AddAccountBottomSheet> {
     _nameController.dispose();
     _balanceController.dispose();
     super.dispose();
+  }
+
+  void _openMultiContactSelector() {
+    final l10n = AppLocalizations.of(context)!;
+    final contactProvider = Provider.of<ContactProvider>(context, listen: false);
+    final allContacts = contactProvider.contacts;
+    
+    final tempSelected = List<Contact>.from(_selectedContacts);
+    String searchQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setSheetState) {
+            final filteredContacts = allContacts.where((c) {
+              if (searchQuery.isEmpty) return true;
+              final q = searchQuery.toLowerCase();
+              return c.displayName.toLowerCase().contains(q) ||
+                     c.userCode.toLowerCase().contains(q) ||
+                     c.email.toLowerCase().contains(q);
+            }).toList();
+
+            final scheme = Theme.of(dialogCtx).colorScheme;
+
+            return Container(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 16,
+                bottom: 16 + MediaQuery.of(dialogCtx).padding.bottom,
+              ),
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        l10n.selectContacts,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Search Field
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: l10n.search,
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      isDense: true,
+                      filled: true,
+                      // Fond neutre du champ de recherche : gris tres clair
+                      // conserve en clair, surface elevee en sombre.
+                      fillColor: scheme.tone(
+                        light: const Color(0xFFF5F5F5), // Colors.grey.shade100
+                        dark: scheme.surfaceContainerHighest,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setSheetState(() {
+                        searchQuery = val;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  // Button add new contact
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await AddContactBottomSheet.show(context);
+                      if (result != null && result['contact'] != null && result['contact'] is Contact) {
+                        final Contact newC = result['contact'];
+                        await contactProvider.fetchContacts();
+                        setSheetState(() {
+                          if (!tempSelected.any((c) => c.id == newC.id)) {
+                            tempSelected.add(newC);
+                          }
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.person_add_alt_1, size: 18),
+                    label: Text(l10n.addContactTitle),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(),
+                  // Contacts list
+                  Expanded(
+                    child: filteredContacts.isEmpty
+                        ? Center(
+                            child: Text(
+                              allContacts.isEmpty
+                                  ? l10n.noContactToShare
+                                  : l10n.noContactFound,
+                              style: TextStyle(color: scheme.onSurfaceVariant),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: filteredContacts.length,
+                            itemBuilder: (ctx, index) {
+                              final contact = filteredContacts[index];
+                              final isSelected = tempSelected.any((c) => c.id == contact.id);
+
+                              return CheckboxListTile(
+                                value: isSelected,
+                                activeColor: scheme.primary,
+                                secondary: CircleAvatar(
+                                  backgroundColor: scheme.primaryContainer,
+                                  child: Text(
+                                    contact.displayName.isNotEmpty
+                                        ? contact.displayName[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      color: scheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(contact.displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                subtitle: Text(
+                                  contact.email.isNotEmpty ? contact.email : contact.userCode,
+                                  style: TextStyle(
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                onChanged: (checked) {
+                                  setSheetState(() {
+                                    if (checked == true) {
+                                      if (!tempSelected.any((c) => c.id == contact.id)) {
+                                        tempSelected.add(contact);
+                                      }
+                                    } else {
+                                      tempSelected.removeWhere((c) => c.id == contact.id);
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Validation button
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedContacts.clear();
+                        _selectedContacts.addAll(tempSelected);
+                      });
+                      Navigator.pop(sheetContext);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: scheme.primary,
+                      foregroundColor: scheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      'Valider (${tempSelected.length})',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _submit() async {
@@ -87,37 +279,37 @@ class _AddAccountBottomSheetState extends State<AddAccountBottomSheet> {
       final initialBalance = double.tryParse(balanceText) ?? 0.0;
 
       final accountProvider = Provider.of<AccountProvider>(context, listen: false);
-      
-      int? ownerIdInt;
-      if (_selectedContactId != null) {
-        ownerIdInt = int.tryParse(_selectedContactId!);
-      }
+      final selectedContactIds = _selectedContacts.map((c) => c.id).toList();
+      final firstContact = _selectedContacts.isNotEmpty ? _selectedContacts.first : null;
 
       if (widget.existingAccount == null) {
         final newAccount = Account(
           id: const Uuid().v4(),
           name: newAccountName,
           balance: initialBalance,
-          ownerId: ownerIdInt,
-          ownerName: _selectedContactName,
-          isShared: _selectedContactId != null,
+          ownerId: firstContact?.id,
+          ownerName: firstContact?.displayName,
+          isShared: _selectedContacts.isNotEmpty,
         );
         
-        if (ownerIdInt != null) {
-          await accountProvider.addAccount(newAccount);
-          isSuccessLocally = true;
-          await SyncService().push();
-          await accountProvider.shareAccount(newAccount.id, ownerIdInt);
-        } else {
-          await accountProvider.addAccount(newAccount);
-          isSuccessLocally = true;
+        await accountProvider.addAccount(newAccount);
+        isSuccessLocally = true;
+        await SyncService().push();
+
+        if (selectedContactIds.isNotEmpty) {
+          await accountProvider.shareAccountWithMultiple(newAccount.id, selectedContactIds);
         }
       } else {
         await accountProvider.updateAccount(widget.existingAccount!.copyWith(
           name: newAccountName,
           balance: initialBalance,
+          isShared: _selectedContacts.isNotEmpty ? true : widget.existingAccount!.isShared,
         ));
         isSuccessLocally = true;
+
+        if (selectedContactIds.isNotEmpty) {
+          await accountProvider.shareAccountWithMultiple(widget.existingAccount!.id, selectedContactIds);
+        }
       }
 
       if (mounted) {
@@ -154,7 +346,11 @@ class _AddAccountBottomSheetState extends State<AddAccountBottomSheet> {
                 Expanded(child: Text(errorMessage)),
               ],
             ),
-            backgroundColor: isNetworkOrSyncError ? Colors.blueGrey.shade700 : Colors.orange.shade800,
+            // Fonds volontairement sombres dans les deux themes (SnackBar
+            // flottante) : le contenu blanc ci-dessus reste donc lisible.
+            backgroundColor: isNetworkOrSyncError
+                ? const Color(0xFF455A64) // Colors.blueGrey.shade700
+                : const Color(0xFFEF6C00), // Colors.orange.shade800
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             margin: const EdgeInsets.all(16),
@@ -181,17 +377,8 @@ class _AddAccountBottomSheetState extends State<AddAccountBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
     final currency = Provider.of<ProfileProvider>(context, listen: false).profile.currency;
-    final contacts = Provider.of<ContactProvider>(context).contacts;
-
-    // Build dropdown value
-    String? dropdownValue;
-    if (_selectedContactId != null) {
-      dropdownValue = 'contact_$_selectedContactId';
-    } else if (_selectedContactName != null) {
-      // In case we only have a label (no ID)
-      dropdownValue = 'label_$_selectedContactName';
-    }
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -235,104 +422,128 @@ class _AddAccountBottomSheetState extends State<AddAccountBottomSheet> {
               inputFormatters: [AmountInputFormatter()],
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: dropdownValue,
-              decoration: InputDecoration(
-                labelText: l10n.linkedAccountOptional,
-                prefixIcon: const Icon(Icons.person_outline),
-                border: const OutlineInputBorder(),
+            
+            // Section Partage Multi-Contacts
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: scheme.outlineVariant),
+                borderRadius: BorderRadius.circular(10),
+                color: scheme.surfaceContainerLow,
               ),
-              items: [
-                DropdownMenuItem(
-                  value: null,
-                  child: Text(l10n.noAccount),
-                ),
-                ...contacts.map((contact) {
-                  return DropdownMenuItem(
-                    value: 'contact_${contact.id}',
-                    child: Text('👤 ${contact.displayName}'),
-                  );
-                }).toList(),
-                DropdownMenuItem(
-                  value: '__add_new__',
-                  child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      const Icon(Icons.person_add_alt_1, size: 18, color: Colors.blue),
+                      // Section partage : suit la couleur de marque (teal par
+                      // defaut) au lieu d'un teal fige.
+                      Icon(Icons.people_outline, size: 20, color: scheme.primary),
                       const SizedBox(width: 8),
-                      Text(l10n.addContactTitle, style: const TextStyle(color: Colors.blue)),
+                      Text(
+                        l10n.shareWithContacts,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: _openMultiContactSelector,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: Text(
+                          _selectedContacts.isEmpty ? l10n.addContactsToShare : 'Modifier (${_selectedContacts.length})',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
                     ],
                   ),
-                ),
-              ],
-              onChanged: widget.existingAccount != null ? null : (val) async {
-                if (val == '__add_new__') {
-                  final result = await AddContactBottomSheet.show(context);
-                  if (result != null) {
-                    if (result['mode'] == 'fimus' && result['contact'] != null) {
-                      final Contact contact = result['contact'];
-                      setState(() {
-                        _selectedContactName = contact.displayName;
-                        _selectedContactId = contact.id.toString();
-                      });
-                    } else if (result['mode'] == 'label') {
-                      final String label = result['value'];
-                      final Contact? contact = result['contact'];
-                      setState(() {
-                        _selectedContactName = label;
-                        _selectedContactId = contact?.id.toString();
-                      });
-                    }
-                  } else {
-                    // Reset to null if user cancelled adding a contact
-                    setState(() {
-                      if (_selectedContactId == null && _selectedContactName == null) {
-                        // Do nothing, already null
-                      }
-                    });
-                  }
-                } else if (val != null) {
-                  if (val.startsWith('contact_')) {
-                    final id = val.replaceFirst('contact_', '');
-                    final contact = contacts.firstWhere((c) => c.id.toString() == id);
-                    setState(() {
-                      _selectedContactName = contact.displayName;
-                      _selectedContactId = id;
-                    });
-                  }
-                } else {
-                  setState(() {
-                    _selectedContactName = null;
-                    _selectedContactId = null;
-                  });
-                }
-              },
+                  if (_selectedContacts.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Text(
+                        'Aucun contact sélectionné (Compte personnel)',
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: _selectedContacts.map((contact) {
+                          return Chip(
+                            avatar: CircleAvatar(
+                              backgroundColor: scheme.primary,
+                              child: Text(
+                                contact.displayName.isNotEmpty
+                                    ? contact.displayName[0].toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  color: scheme.onPrimary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            label: Text(
+                              contact.displayName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ),
+                            deleteIcon: const Icon(Icons.cancel, size: 16),
+                            onDeleted: () {
+                              setState(() {
+                                _selectedContacts.removeWhere((c) => c.id == contact.id);
+                              });
+                            },
+                            backgroundColor: scheme.primaryContainer,
+                            side: BorderSide(
+                              color: scheme.primary.withValues(alpha: 0.35),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                ],
+              ),
             ),
+            
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _isLoading ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+                backgroundColor: scheme.primary,
+                foregroundColor: scheme.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: _isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(scheme.onPrimary),
                       ),
                     )
                   : Text(
                       l10n.save,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: scheme.onPrimary,
                       ),
                     ),
             ),

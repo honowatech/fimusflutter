@@ -4,3 +4,23 @@ build/
 .idea/
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
+
+# ---------------------------------------------------------------------------
+# Journaux et brouillons (sprint 5 — dette d'hygiène)
+# ---------------------------------------------------------------------------
+# Ces fichiers étaient versionnés à la racine : sorties de `dart analyze` et de
+# Gradle (~120 Ko), brouillons Dart hors de `test/`, prompt de travail.
+# Rien de tout cela n'est une source : régénérable ou jetable.
+*.log
+/analyze_log.txt
+/gradle_build_log*.txt
+/temp_prompt.txt
+# Brouillons Dart à la racine UNIQUEMENT ; les vrais tests vivent dans test/
+# et ne sont pas concernés (motifs ancrés par le `/` initial).
+/test.dart
+/test[0-9]*.dart
+/test_*.dart
+
+# Symboles de débogage et mapping R8 : produits par chaque build release,
+# à archiver hors du dépôt (voir docs/build-release-android.md §4).
+/symbols/

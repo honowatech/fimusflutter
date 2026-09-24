@@ -7,16 +7,28 @@ import 'add_expense_screen.dart';
 import 'add_debt_operation_screen.dart';
 import 'debt_screen.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/announcement.dart';
 import '../services/announcement_service.dart';
 import '../utils/api_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../widgets/add_account_bottom_sheet.dart';
+import '../widgets/weekly_summary_band.dart';
 import '../services/notification_permission_service.dart';
+import '../widgets/battery_optimization_banner.dart';
+import '../utils/app_theme.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  static final GlobalKey<AnnouncementCarouselState> _carouselKey = GlobalKey<AnnouncementCarouselState>();
+
+  Future<void> _handleRefresh(BuildContext context) async {
+    await Future.wait([
+      context.read<AuthProvider>().syncNow(context),
+      _carouselKey.currentState?.fetchAnnouncementConfig(isRefresh: true) ?? Future.value(),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,173 +36,232 @@ class HomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Consumer<NotificationPermissionService>(
-              builder: (context, permService, child) {
-                if (permService.isGranted) return const SizedBox.shrink();
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          "Activez les notifications pour ne rien manquer.",
-                          style: TextStyle(color: Colors.orange.shade900),
+      body: RefreshIndicator(
+        onRefresh: () => _handleRefresh(context),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Consumer<NotificationPermissionService>(
+                builder: (context, permService, child) {
+                  if (!permService.isDenied) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    // Bandeau d'avertissement (permission notifications) :
+                    // famille `warning*`, lisible en clair comme en sombre.
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.warningContainer,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: theme.colorScheme.warningOutline),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: theme.colorScheme.warning,
                         ),
-                      ),
-                      TextButton(
-                        onPressed: () => permService.requestPermission(),
-                        child: const Text('Activer'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            // Accès Direct
-            Text(
-              l10n.recentOperations,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            l10n.enableNotificationsPrompt,
+                            style: TextStyle(
+                              color: theme.colorScheme.onWarningContainer,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            // Refus définitif : le système ne réaffichera plus
+                            // la boîte de dialogue, seul le passage par les
+                            // réglages de l'app peut débloquer la situation.
+                            if (permService.isPermanentlyDenied) {
+                              await permService.openSettings();
+                              return;
+                            }
+                            await permService.requestPermission();
+                            if (!context.mounted) return;
+                            if (permService.isPermanentlyDenied) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    l10n.notificationPermissionSettingsHint,
+                                  ),
+                                  action: SnackBarAction(
+                                    label: l10n.notificationPermissionOpenSettings,
+                                    onPressed: permService.openSettings,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: Text(
+                            permService.isPermanentlyDenied
+                                ? l10n.notificationPermissionOpenSettings
+                                : l10n.activate,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: l10n.addIncomeAction,
-                    icon: Icons.attach_money_rounded,
-                    iconColor: const Color(0xFF00C853),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddExpenseScreen(isIncome: true),
-                        ),
-                      );
-                    },
-                  ),
+              const BatteryOptimizationBanner(),
+              // Accès Direct
+              Text(
+                l10n.recentOperations,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: l10n.addBorrowAction,
-                    icon: Icons.download_rounded,
-                    iconColor: const Color(0xFFFF9100),
-                    onTap: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddDebtOperationScreen(initialIsIncome: true),
-                        ),
-                      );
-                      if (result == true) {
-                        MainScreen.of(context)?.setSelectedIndex(2);
-                        DebtScreen.globalKey.currentState?.switchToHistoryTab();
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: l10n.addAccountAction,
-                    icon: Icons.account_balance_wallet_rounded,
-                    iconColor: const Color(0xFF00B0FF),
-                    onTap: () {
-                      AddAccountBottomSheet.show(context, onSuccess: () {
-                        // Redirect to Accounts tab
-                        MainScreen.of(context)?.setSelectedIndex(1); // 1 is ExpenseScreen
-                        ExpenseScreen.navigateToTab(2); // 2 is Accounts tab
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: l10n.ussdMenu,
-                    icon: Icons.dialpad_rounded,
-                    iconColor: const Color(0xFF7C4DFF),
-                    onTap: () {
-                      MainScreen.of(context)?.setSelectedIndex(3);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: l10n.addExpenseAction,
-                    icon: Icons.money_off_rounded,
-                    iconColor: const Color(0xFFFF5274),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddExpenseScreen(isIncome: false),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    title: l10n.addLendAction,
-                    icon: Icons.upload_rounded,
-                    iconColor: const Color(0xFF651FFF),
-                    onTap: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddDebtOperationScreen(initialIsIncome: false),
-                        ),
-                      );
-                      if (result == true) {
-                        MainScreen.of(context)?.setSelectedIndex(2);
-                        DebtScreen.globalKey.currentState?.switchToHistoryTab();
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 32),
-            
-            // Annonces
-            Text(
-              'Annonces',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
               ),
-            ),
-            const SizedBox(height: 8),
-            const AnnouncementCarousel(),
-          ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildActionCard(
+                      context,
+                      title: l10n.addIncomeAction,
+                      icon: Icons.attach_money_rounded,
+                      // Vert de marque des montants positifs.
+                      iconColor: theme.colorScheme.income,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddExpenseScreen(isIncome: true),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildActionCard(
+                      context,
+                      title: l10n.addBorrowAction,
+                      icon: Icons.download_rounded,
+                      iconColor: theme.colorScheme.tone(
+                        light: const Color(0xFFFF9100),
+                        dark: const Color(0xFFFFB04D),
+                      ),
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddDebtOperationScreen(initialIsIncome: true),
+                          ),
+                        );
+                        if (result == true) {
+                          MainScreen.of(context)?.setSelectedIndex(2);
+                          DebtScreen.globalKey.currentState?.switchToHistoryTab();
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildActionCard(
+                      context,
+                      title: l10n.addAccountAction,
+                      icon: Icons.account_balance_wallet_rounded,
+                      iconColor: theme.colorScheme.tone(
+                        light: const Color(0xFF00B0FF),
+                        dark: const Color(0xFF6FD0FF),
+                      ),
+                      onTap: () {
+                        AddAccountBottomSheet.show(context, onSuccess: () {
+                          // Redirect to Accounts tab
+                          MainScreen.of(context)?.setSelectedIndex(1); // 1 is ExpenseScreen
+                          ExpenseScreen.navigateToTab(2); // 2 is Accounts tab
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildActionCard(
+                      context,
+                      title: l10n.ussdMenu,
+                      icon: Icons.dialpad_rounded,
+                      iconColor: theme.colorScheme.tone(
+                        light: const Color(0xFF7C4DFF),
+                        dark: const Color(0xFFB9A5FF),
+                      ),
+                      onTap: () {
+                        MainScreen.of(context)?.setSelectedIndex(3);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildActionCard(
+                      context,
+                      title: l10n.addExpenseAction,
+                      icon: Icons.money_off_rounded,
+                      iconColor: theme.colorScheme.tone(
+                        light: const Color(0xFFFF5274),
+                        dark: const Color(0xFFFF8FA6),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddExpenseScreen(isIncome: false),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildActionCard(
+                      context,
+                      title: l10n.addLendAction,
+                      icon: Icons.upload_rounded,
+                      // Indigo trop sombre sur fond noir : variante eclaircie.
+                      iconColor: theme.colorScheme.tone(
+                        light: const Color(0xFF651FFF),
+                        dark: const Color(0xFFA98BFF),
+                      ),
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddDebtOperationScreen(initialIsIncome: false),
+                          ),
+                        );
+                        if (result == true) {
+                          MainScreen.of(context)?.setSelectedIndex(2);
+                          DebtScreen.globalKey.currentState?.switchToHistoryTab();
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              const WeeklySummaryBand(),
+
+              const SizedBox(height: 32),
+              
+              // Annonces
+              Text(
+                l10n.announcements,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              AnnouncementCarousel(key: _carouselKey),
+            ],
+          ),
         ),
       ),
     );
@@ -210,7 +281,7 @@ class HomeScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: theme.colorScheme.cardShadow,
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -263,21 +334,6 @@ class HomeScreen extends StatelessWidget {
                         color: theme.colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    // Arrow button
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: iconColor.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.arrow_forward_rounded,
-                        color: iconColor,
-                        size: 12,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -293,10 +349,10 @@ class AnnouncementCarousel extends StatefulWidget {
   const AnnouncementCarousel({super.key});
 
   @override
-  State<AnnouncementCarousel> createState() => _AnnouncementCarouselState();
+  State<AnnouncementCarousel> createState() => AnnouncementCarouselState();
 }
 
-class _AnnouncementCarouselState extends State<AnnouncementCarousel> {
+class AnnouncementCarouselState extends State<AnnouncementCarousel> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   Timer? _timer;
@@ -314,13 +370,13 @@ class _AnnouncementCarouselState extends State<AnnouncementCarousel> {
     // Listen for connectivity changes
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
       if (!results.contains(ConnectivityResult.none)) {
-        _fetchAnnouncementConfig(isRefresh: true);
+        fetchAnnouncementConfig(isRefresh: true);
       }
     });
 
     // Refresh periodically (e.g. every 5 minutes)
     _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
-      _fetchAnnouncementConfig(isRefresh: true);
+      fetchAnnouncementConfig(isRefresh: true);
     });
   }
 
@@ -333,10 +389,10 @@ class _AnnouncementCarouselState extends State<AnnouncementCarousel> {
       });
       _startTimer();
     }
-    _fetchAnnouncementConfig(isRefresh: cached != null);
+    fetchAnnouncementConfig(isRefresh: cached != null);
   }
 
-  Future<void> _fetchAnnouncementConfig({bool isRefresh = false}) async {
+  Future<void> fetchAnnouncementConfig({bool isRefresh = false}) async {
     try {
       final config = await AnnouncementService().getAnnouncementConfig();
       if (mounted) {
@@ -392,6 +448,9 @@ class _AnnouncementCarouselState extends State<AnnouncementCarousel> {
 
   List<Color> _getFallbackGradient(int index) {
     switch (index % 3) {
+      // Degrades de repli des visuels d'annonce : palette illustrative
+      // volontairement figee (identique en clair et en sombre). Le texte pose
+      // dessus force donc explicitement `Colors.white`.
       case 0:
         return [Colors.deepPurple, Colors.purpleAccent];
       case 1:
@@ -404,6 +463,7 @@ class _AnnouncementCarouselState extends State<AnnouncementCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     if (_isLoading) {
@@ -416,15 +476,9 @@ class _AnnouncementCarouselState extends State<AnnouncementCarousel> {
     }
 
     final List<AnnouncementSlide> slides = _config?.slides ?? [
-      AnnouncementSlide(
-        text: 'Configurez vos codes USSD préférés pour exécuter vos transactions en un seul clic !',
-      ),
-      AnnouncementSlide(
-        text: 'Vous pouvez désormais ajouter ou supprimer vos opérateurs USSD personnalisés en toute simplicité.',
-      ),
-      AnnouncementSlide(
-        text: 'Suivi de budget : Suivez vos dépenses quotidiennes et maîtrisez votre budget grâce à nos rapports détaillés.',
-      ),
+      AnnouncementSlide(text: l10n.announcementFallback1),
+      AnnouncementSlide(text: l10n.announcementFallback2),
+      AnnouncementSlide(text: l10n.announcementFallback3),
     ];
 
     if (slides.isEmpty) {
@@ -501,7 +555,7 @@ class _AnnouncementCarouselState extends State<AnnouncementCarousel> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[800],
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

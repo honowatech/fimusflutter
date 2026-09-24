@@ -5,22 +5,41 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- SCHEDULE_EXACT_ALARM uniquement : l'utilisateur accorde l'alarme
+         exacte depuis Profil > Notifications. USE_EXACT_ALARM est réservé par
+         Google Play aux applications d'alarme/agenda (risque de rejet) et a
+         donc été retiré ; sans autorisation, ReminderScheduler retombe sur
+         AndroidScheduleMode.inexactAllowWhileIdle. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" tools:node="replace" />
     <uses-feature android:name="android.hardware.camera" android:required="false" tools:node="replace" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" tools:node="replace" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" tools:node="replace" />
+    <!-- Application financière : aucune sauvegarde (la base SQLite des
+         opérations et les préférences ne doivent pas être extractibles) et
+         trafic en clair interdit hors hôtes de développement
+         (cf. res/xml/network_security_config.xml). -->
     <application
         android:label="FIMUS"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
-        android:usesCleartextTraffic="true"
-        android:extractNativeLibs="true">
+        android:allowBackup="false"
+        tools:replace="android:allowBackup"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:networkSecurityConfig="@xml/network_security_config">
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="monitrack_channel_id" />
+            android:value="fimus_general_v3" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher" />
+            android:resource="@drawable/ic_stat_fimus" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/fimus_notification_color" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -43,6 +62,24 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Receivers flutter_local_notifications : re-arme les notifications planifiées
+             après redémarrage / mise à jour, et permet les boutons d'action. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+            android:exported="false" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

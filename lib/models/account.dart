@@ -1,7 +1,17 @@
+import '../utils/currency_converter.dart';
+
 class Account {
   final String id;
   final String name;
   final double balance;
+
+  /// Devise du solde, code ISO 4217 à trois lettres.
+  ///
+  /// `null` = devise inconnue, compte antérieur au palier 19 : l'affichage
+  /// retombe sur la devise du profil. Posée à la création (devise du profil)
+  /// puis jamais réécrite — c'est elle qui sera reprise par les opérations
+  /// rattachées au compte.
+  final String? currency;
   final String? type;
   final String? icon;
   final String? color;
@@ -14,6 +24,7 @@ class Account {
     required this.id,
     required this.name,
     this.balance = 0.0,
+    String? currency,
     this.type,
     this.icon,
     this.color,
@@ -21,13 +32,14 @@ class Account {
     this.ownerName,
     this.ownerId,
     this.updatedAt,
-  });
+  }) : currency = CurrencyConverter.normalizeCode(currency);
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'balance': balance,
+      'currency': currency,
       'type': type,
       'icon': icon,
       'color': color,
@@ -43,6 +55,7 @@ class Account {
       id: json['id'] ?? json['uuid'] ?? '',
       name: json['name'] ?? '',
       balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'],
       type: json['type'],
       icon: json['icon'],
       color: json['color'],
@@ -58,6 +71,7 @@ class Account {
       'id': id,
       'name': name,
       'balance': balance,
+      'currency': currency,
       'type': type,
       'icon': icon,
       'color': color,
@@ -73,6 +87,7 @@ class Account {
       id: map['id'] ?? '',
       name: map['name'] ?? '',
       balance: (map['balance'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'],
       type: map['type'],
       icon: map['icon'],
       color: map['color'],
@@ -86,6 +101,7 @@ class Account {
   Account copyWith({
     String? name,
     double? balance,
+    String? currency,
     String? type,
     String? icon,
     String? color,
@@ -98,6 +114,7 @@ class Account {
       id: id,
       name: name ?? this.name,
       balance: balance ?? this.balance,
+      currency: currency ?? this.currency,
       type: type ?? this.type,
       icon: icon ?? this.icon,
       color: color ?? this.color,

@@ -1,50 +1,11 @@
 import 'package:monitrack/l10n/app_localizations.dart';
+import 'category_normalizer.dart';
 
 extension CategoryTranslation on AppLocalizations {
   String translateCategory(String category) {
+    // Les catégories USSD (hors périmètre « dépenses et entrées ») sont
+    // affichées telles qu'elles : vérifiées avant toute normalisation.
     switch (category) {
-      // Expenses
-      case 'Alimentation':
-      case 'Food':
-        return catExpenseFood;
-      case 'Transport':
-        return catExpenseTransport;
-      case 'Loisirs':
-      case 'Leisure':
-        return catExpenseLeisure;
-      case 'Santé':
-      case 'Health':
-        return catExpenseHealth;
-      case 'Factures':
-      case 'Bills':
-        return catExpenseBills;
-      
-      // Incomes
-      case 'Salaires':
-      case 'Salary':
-        return catIncomeSalary;
-      case 'Pension retraite':
-      case 'Pension':
-        return catIncomePension;
-      case 'Honoraires':
-      case 'Fees':
-        return catIncomeFees;
-      case 'Bénéfices':
-      case 'Profits':
-        return catIncomeProfits;
-      case 'Dividendes':
-      case 'Dividends':
-        return catIncomeDividends;
-      case 'Vente de bien':
-      case 'Sale of goods':
-        return catIncomeSale;
-      case 'Dons':
-      case 'Donations':
-        return catIncomeDonations;
-      case 'Héritages':
-      case 'Inheritance':
-        return catIncomeInheritance;
-      
       // USSD Categories
       case 'Dépôt':
       case 'Deposit':
@@ -66,16 +27,62 @@ extension CategoryTranslation on AppLocalizations {
         return catUssdBalance;
       case 'Internet':
         return catUssdInternet;
+    }
+
+    // Normalisation : casse homogène (Title case) pour l'affichage, y compris
+    // pour les anciennes données mal formées.
+    switch (normalizeCategory(category)) {
+      // Expenses
+      case 'Alimentation':
+      case 'Food':
+        return catExpenseFood;
+      case 'Transport':
+        return catExpenseTransport;
+      case 'Loisirs':
+      case 'Leisure':
+        return catExpenseLeisure;
+      case 'Santé':
+      case 'Health':
+        return catExpenseHealth;
+      case 'Factures':
+      case 'Bills':
+        return catExpenseBills;
+
+      // Incomes
+      case 'Salaires':
+      case 'Salary':
+        return catIncomeSalary;
+      case 'Pension Retraite':
+      case 'Pension':
+        return catIncomePension;
+      case 'Honoraires':
+      case 'Fees':
+        return catIncomeFees;
+      case 'Bénéfices':
+      case 'Profits':
+        return catIncomeProfits;
+      case 'Dividendes':
+      case 'Dividends':
+        return catIncomeDividends;
+      case 'Vente De Bien':
+      case 'Sale Of Goods':
+        return catIncomeSale;
+      case 'Dons':
+      case 'Donations':
+        return catIncomeDonations;
+      case 'Héritages':
+      case 'Inheritance':
+        return catIncomeInheritance;
 
       // Common
       case 'Autre':
       case 'Other':
-        // we can return catExpenseOther (which is identical text) 
+        // we can return catExpenseOther (which is identical text)
         // to handle the general 'Other'
         return catExpenseOther;
-        
+
       default:
-        return category;
+        return normalizeCategory(category);
     }
   }
 

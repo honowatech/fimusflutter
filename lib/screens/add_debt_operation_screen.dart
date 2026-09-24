@@ -6,6 +6,7 @@ import '../providers/expense_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/contact_provider.dart';
+import '../utils/app_theme.dart';
 import '../utils/formatters.dart';
 import '../utils/translation_helper.dart';
 import '../providers/auth_provider.dart';
@@ -20,8 +21,14 @@ import 'package:uuid/uuid.dart';
 class AddDebtOperationScreen extends StatefulWidget {
   final String? initialTag;
   final bool? initialIsIncome;
+  final double? initialAmount;
 
-  const AddDebtOperationScreen({super.key, this.initialTag, this.initialIsIncome});
+  const AddDebtOperationScreen({
+    super.key,
+    this.initialTag,
+    this.initialIsIncome,
+    this.initialAmount,
+  });
 
   @override
   State<AddDebtOperationScreen> createState() => _AddDebtOperationScreenState();
@@ -54,6 +61,10 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
   bool _addComment = false;
   String? _comment;
 
+  // Due Date (Échéance) for simple debt/creance
+  bool _hasDueDate = false;
+  DateTime? _selectedDueDate;
+
   @override
   void initState() {
     super.initState();
@@ -65,12 +76,27 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
       if (!mounted) return;
       context.read<ContactProvider>().fetchContacts();
       
+      final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
+      double targetAmount = widget.initialAmount ?? 0.0;
+
       if (_selectedDebtTag != null) {
-        final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
         final balance = expenseProvider.getDebtBalance(_selectedDebtTag!);
-        setState(() {
-          _isIncome = balance < 0;
-        });
+        if (widget.initialIsIncome == null) {
+          setState(() {
+            _isIncome = balance > 0;
+          });
+        }
+        if (widget.initialAmount == null && balance != 0) {
+          targetAmount = balance.abs();
+        }
+      }
+
+      if (targetAmount > 0) {
+        final formatted = (targetAmount % 1 == 0)
+            ? targetAmount.round().formatAmount()
+            : targetAmount.formatAmountDouble();
+        _amountController.text = formatted;
+        _recalculate();
       }
     });
   }
@@ -120,7 +146,42 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
     });
   }
 
+  /// Libellé traduit d'une périodicité de taux stockée en base ('Annuel'…).
+  String _periodicityLabel(AppLocalizations l10n, String value) {
+    switch (value) {
+      case 'Mensuel':
+        return l10n.monthly;
+      default:
+        return l10n.annual;
+    }
+  }
+
+  /// Libellé traduit d'une unité de durée stockée en base ('Mois'/'Années').
+  String _durationUnitLabel(AppLocalizations l10n, String value) {
+    switch (value) {
+      case 'Années':
+        return l10n.years;
+      default:
+        return l10n.months;
+    }
+  }
+
+  /// Libellé traduit d'une fréquence de remboursement stockée en base.
+  String _frequencyLabel(AppLocalizations l10n, String value) {
+    switch (value) {
+      case 'Hebdomadaire':
+        return l10n.frequencyWeekly;
+      case 'Quotidienne':
+        return l10n.frequencyDaily;
+      case 'Annuelle':
+        return l10n.frequencyAnnual;
+      default:
+        return l10n.frequencyMonthly;
+    }
+  }
+
   void _showLoader() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -130,13 +191,20 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
           padding: const EdgeInsets.all(20.0),
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              CircularProgressIndicator(color: Colors.teal),
-              SizedBox(width: 20),
+            children: [
+              // Teal conservé à l'identique en clair ; variante claire en sombre,
+              // le teal plein manquant de contraste sur la surface du Dialog.
+              CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.tone(
+                      light: Colors.teal,
+                      dark: const Color(0xFF80CBC4),
+                    ),
+              ),
+              const SizedBox(width: 20),
               Expanded(
                 child: Text(
-                  "Enregistrement en cours...",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  l10n.savingInProgress,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -149,7 +217,8 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
   Future<void> _save() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      
+
+      final l10n = AppLocalizations.of(context)!;
       _showLoader();
       bool isSuccessLocally = false;
 
@@ -160,6 +229,11 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
 
         final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
         final accountProvider = Provider.of<AccountProvider>(context, listen: false);
+        
+        // Le tag sélectionné peut désigner un contact (navigation depuis le
+        // détail d'une dette) : on résout son id au moment de l'enregistrement.
+        final String? debtorUserId = _selectedDebtorUserId ??
+            _resolveDebtorUserIdFromTag(context.read<ContactProvider>().contacts);
         
         final generatedTitle = widget.initialTag != null
             ? (_isIncome ? 'Remboursement perçu' : 'Dette remboursée')
@@ -176,7 +250,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
             type: _isIncome ? 'income' : 'expense',
             accountId: _isLinkedToCashFlow ? _selectedAccountId : null,
             debtTag: _selectedDebtTag,
-            debtorUserId: _selectedDebtorUserId,
+            debtorUserId: debtorUserId,
             isLinkedToCashFlow: _isLinkedToCashFlow,
             note: _addComment ? _comment : null,
             interestRate: _isCreditSimulation ? _interestRate : null,
@@ -184,6 +258,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
             durationUnit: _isCreditSimulation ? _durationUnit : null,
             repaymentFrequency: _isCreditSimulation ? _repaymentFrequency : null,
             installmentAmount: _isCreditSimulation ? _installmentAmount : null,
+            dueDate: (!_isCreditSimulation && _hasDueDate) ? _selectedDueDate : null,
             creatorId: currentUserId,
             creatorName: currentUserName,
           ), executor: txn);
@@ -212,7 +287,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                 date: nextDate,
                 type: 'expense',
                 debtTag: _selectedDebtTag,
-                debtorUserId: _selectedDebtorUserId,
+                debtorUserId: debtorUserId,
                 isLinkedToCashFlow: false,
                 isPlanned: true,
                 creatorId: currentUserId,
@@ -238,22 +313,22 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
           Navigator.pop(context, true); // Close screen
         }
       } catch (e) {
+        // Le détail technique reste dans les logs : l'utilisateur ne voit
+        // qu'un message générique traduit.
+        debugPrint('AddDebtOperationScreen._save a échoué : $e');
         if (mounted) {
           Navigator.pop(context); // Close loader
-          
-          String errorMessage = "Une erreur s'est produite. Veuillez réessayer.";
+
           String errorString = e.toString().toLowerCase();
-          bool isNetworkOrSyncError = errorString.contains('dioexception') || 
-                                      errorString.contains('socketexception') || 
-                                      errorString.contains('network') || 
+          bool isNetworkOrSyncError = errorString.contains('dioexception') ||
+                                      errorString.contains('socketexception') ||
+                                      errorString.contains('network') ||
                                       errorString.contains('connexion') ||
                                       errorString.contains('404');
-          
-          if (isSuccessLocally && isNetworkOrSyncError) {
-             errorMessage = "L'opération a été enregistrée sur votre téléphone. Elle sera synchronisée dès le retour de la connexion internet.";
-          } else {
-             errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('Erreur : ', '');
-          }
+
+          final String errorMessage = (isSuccessLocally && isNetworkOrSyncError)
+              ? l10n.savedLocallyWillSync
+              : l10n.genericErrorRetry;
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -261,13 +336,26 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                 children: [
                   Icon(
                     isNetworkOrSyncError ? Icons.cloud_off : Icons.warning_amber_rounded,
+                    // Les deux fonds ci-dessous restent sombres et saturés dans les
+                    // deux thèmes : le blanc y garde un contraste AA.
                     color: Colors.white,
                   ),
                   const SizedBox(width: 12),
                   Expanded(child: Text(errorMessage)),
                 ],
               ),
-              backgroundColor: isNetworkOrSyncError ? Colors.blueGrey.shade700 : Colors.orange.shade800,
+              // SnackBar d'erreur : `warning` (ambre clair en sombre) ne
+              // supporterait pas un contenu blanc ; on garde donc des fonds
+              // profonds via `tone`, identiques aux littéraux d'origine en clair.
+              backgroundColor: isNetworkOrSyncError
+                  ? Theme.of(context).colorScheme.tone(
+                        light: Colors.blueGrey.shade700,
+                        dark: const Color(0xFF37474F),
+                      )
+                  : Theme.of(context).colorScheme.tone(
+                        light: Colors.orange.shade800,
+                        dark: const Color(0xFF8A4300),
+                      ),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               margin: const EdgeInsets.all(16),
@@ -297,10 +385,41 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
     }
   }
 
+  Future<void> _pickDueDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDueDate ?? _selectedDate.add(const Duration(days: 30)),
+      firstDate: _selectedDate,
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDueDate = picked;
+      });
+    }
+  }
+
+  /// Retrouve l'id du contact correspondant au tag sélectionné, sans modifier
+  /// l'état pendant le build (la mutation se fait dans [_save] si besoin).
+  String? _resolveDebtorUserIdFromTag(List<Contact> contacts) {
+    final tag = _selectedDebtTag;
+    if (tag == null || tag.isEmpty) return null;
+    for (final c in contacts) {
+      if (c.name.toLowerCase() == tag.toLowerCase()) {
+        return c.id.toString();
+      }
+    }
+    return null;
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
+    // Accent « échéance » : teal d'origine en clair, variante claire en sombre.
+    final dueDateAccent =
+        colorScheme.tone(light: Colors.teal, dark: const Color(0xFF80CBC4));
     final expenseProvider = Provider.of<ExpenseProvider>(context);
     final baseCategories = _isIncome ? expenseProvider.incomeCategories : expenseProvider.expenseCategories;
     final categories = baseCategories.contains('Remboursement')
@@ -320,17 +439,6 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
       return true;
     }).toList();
 
-    // Resolve contact ID from tag if not set
-    if (_selectedDebtTag != null && _selectedDebtorUserId == null && contacts.isNotEmpty) {
-      final match = contacts.firstWhere(
-        (c) => c.name.toLowerCase() == _selectedDebtTag!.toLowerCase(),
-        orElse: () => Contact(id: -1, name: '', email: '', userCode: ''),
-      );
-      if (match.id != -1) {
-        _selectedDebtorUserId = match.id.toString();
-      }
-    }
-
     // List of names/tags that are not contacts to show them separately
     final contactNames = contacts.map((c) => c.name.toLowerCase()).toList();
     
@@ -349,11 +457,19 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
       return true;
     }).toList();
 
-    // Map dropdown value
+    // Map dropdown value. On ne passe à DropdownButtonFormField qu'une valeur
+    // qui correspond réellement à un item de la liste : une valeur orpheline
+    // (contact retiré de la liste par un fetch concurrent, doublon, etc.)
+    // déclenche l'assertion « There should be exactly one item with
+    // [DropdownButton]'s value » — crash en debug, champ cassé en release.
     String? dropdownValue;
-    if (_selectedDebtorUserId != null) {
-      dropdownValue = 'contact_$_selectedDebtorUserId';
-    } else if (_selectedDebtTag != null) {
+    final selectedContactId =
+        _selectedDebtorUserId ?? _resolveDebtorUserIdFromTag(contacts);
+    if (selectedContactId != null &&
+        contacts.any((c) => c.id.toString() == selectedContactId)) {
+      dropdownValue = 'contact_$selectedContactId';
+    } else if (_selectedDebtTag != null &&
+        remainingTags.contains(_selectedDebtTag)) {
       dropdownValue = 'tag_$_selectedDebtTag';
     }
 
@@ -361,8 +477,10 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
       appBar: AppBar(
         title: Text(
           widget.initialTag != null
-              ? (_isIncome ? 'Percevoir un remboursement' : 'Rembourser cette dette')
-              : l10n.addDebtOperation,
+              ? (_isIncome
+                  ? l10n.debtOpCollectRepaymentTitle
+                  : l10n.debtOpRepayDebtTitle)
+              : (_isIncome ? l10n.debtOpNewBorrowTitle : l10n.debtOpNewLoanTitle),
         ),
       ),
       body: SingleChildScrollView(
@@ -380,8 +498,8 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                   labelText: l10n.debtTag,
                   helperText: widget.initialTag != null
                       ? (_isIncome
-                          ? 'Percevoir un remboursement de la part de $_selectedDebtTag'
-                          : 'Rembourser la dette envers $_selectedDebtTag')
+                          ? l10n.debtOpCollectFromHint(_selectedDebtTag ?? '')
+                          : l10n.debtOpRepayToHint(_selectedDebtTag ?? ''))
                       : null,
                 ),
                 items: [
@@ -390,7 +508,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                     final isDebt = balance < 0;
                     final isSettled = balance == 0;
                     final balanceText = isSettled 
-                        ? '(Soldé)' 
+                        ? l10n.debtOpSettledSuffix 
                         : '(${balance > 0 ? '+' : ''}${balance.toStringAsFixed(0)} $currency)';
                     return DropdownMenuItem(
                       value: 'contact_${contact.id}',
@@ -403,7 +521,9 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                               text: balanceText,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isSettled ? Colors.grey : (isDebt ? Colors.red : Colors.green),
+                                color: isSettled
+                                    ? colorScheme.onSurfaceVariant
+                                    : (isDebt ? colorScheme.expense : colorScheme.income),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -417,7 +537,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                     final isDebt = balance < 0;
                     final isSettled = balance == 0;
                     final balanceText = isSettled 
-                        ? '(Soldé)' 
+                        ? l10n.debtOpSettledSuffix 
                         : '(${balance > 0 ? '+' : ''}${balance.toStringAsFixed(0)} $currency)';
                     return DropdownMenuItem(
                       value: 'tag_$tag',
@@ -430,7 +550,9 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                               text: balanceText,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isSettled ? Colors.grey : (isDebt ? Colors.red : Colors.green),
+                                color: isSettled
+                                    ? colorScheme.onSurfaceVariant
+                                    : (isDebt ? colorScheme.expense : colorScheme.income),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -456,6 +578,10 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                     if (result != null) {
                       if (result['mode'] == 'fimus' && result['contact'] != null) {
                         final Contact contact = result['contact'];
+                        // Garantit que le contact créé est présent dans les
+                        // items du dropdown (un fetch concurrent pourrait
+                        // sinon fournir une liste obsolète).
+                        context.read<ContactProvider>().upsertContact(contact);
                         setState(() {
                           _selectedDebtTag = contact.name;
                           _selectedDebtorUserId = contact.id.toString();
@@ -466,9 +592,14 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                         final provider = Provider.of<ExpenseProvider>(context, listen: false);
                         provider.addDebtTag(label);
                         
+                        final Contact? createdContact = result['contact'];
+                        if (createdContact != null) {
+                          context.read<ContactProvider>().upsertContact(createdContact);
+                        }
+                        
                         setState(() {
                           _selectedDebtTag = label;
-                          _selectedDebtorUserId = result['contact']?.id?.toString();
+                          _selectedDebtorUserId = createdContact?.id.toString();
                         });
                       }
                     }
@@ -497,24 +628,24 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               // Type Selection (Income vs Expense)
               SegmentedButton<bool>(
                 segments: widget.initialTag != null
-                    ? const [
+                    ? [
                         ButtonSegment<bool>(
                           value: true,
-                          label: Text('Encaisser (Entrée d\'argent)'),
+                          label: Text(l10n.collectMoney),
                         ),
                         ButtonSegment<bool>(
                           value: false,
-                          label: Text('Rembourser (Sortie d\'argent)'),
+                          label: Text(l10n.repayMoney),
                         ),
                       ]
-                    : const [
+                    : [
                         ButtonSegment<bool>(
                           value: false,
-                          label: Text('Créance (Vous devez percevoir)'),
+                          label: Text(l10n.receivableToCollect),
                         ),
                         ButtonSegment<bool>(
                           value: true,
-                          label: Text('Dette (Vous devez rembourser)'),
+                          label: Text(l10n.debtToRepay),
                         ),
                       ],
                 selected: {_isIncome},
@@ -537,7 +668,8 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                   labelText: l10n.amount, 
                   prefixText: '$currency ',
                   helperText: _isCreditSimulation 
-                      ? 'Total à rembourser : ${_totalDebtAmount.toStringAsFixed(2)} $currency'
+                      ? l10n.debtOpTotalToRepay(
+                          _totalDebtAmount.toStringAsFixed(2), currency)
                       : null,
                   helperStyle: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
@@ -555,10 +687,12 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               ),
               const SizedBox(height: 16),
 
-              if (widget.initialTag == null && _isIncome) ...[
+              if (widget.initialTag == null) ...[
                 SwitchListTile(
-                  title: const Text('Dette avec intérêt (Simulateur)'),
-                  subtitle: const Text('Calculer et planifier les échéances de remboursement automatiquement'),
+                  title: Text(_isIncome
+                      ? l10n.interestDebtSimulator
+                      : l10n.receivableInterestSimulator),
+                  subtitle: Text(l10n.interestDebtSubtitle),
                   value: _isCreditSimulation,
                   onChanged: (val) {
                     setState(() {
@@ -576,7 +710,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text('Détails du crédit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text(l10n.creditDetails, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 16),
                           Row(
                             children: [
@@ -584,7 +718,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 flex: 2,
                                 child: TextFormField(
                                   initialValue: _interestRate.toString(),
-                                  decoration: InputDecoration(labelText: 'Taux d\'intérêt', suffixText: '%'),
+                                  decoration: InputDecoration(labelText: l10n.interestRate, suffixText: '%'),
                                   keyboardType: TextInputType.number,
                                   onChanged: (val) {
                                     _interestRate = double.tryParse(val) ?? 0.0;
@@ -597,8 +731,12 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 flex: 3,
                                 child: DropdownButtonFormField<String>(
                                   value: _interestPeriodicity,
-                                  decoration: InputDecoration(labelText: 'Périodicité'),
-                                  items: ['Annuel', 'Mensuel'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                                  decoration: InputDecoration(labelText: l10n.periodicity),
+                                  items: ['Annuel', 'Mensuel']
+                                      .map((p) => DropdownMenuItem(
+                                          value: p,
+                                          child: Text(_periodicityLabel(l10n, p))))
+                                      .toList(),
                                   onChanged: (val) {
                                     setState(() {
                                       _interestPeriodicity = val!;
@@ -616,7 +754,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 flex: 2,
                                 child: TextFormField(
                                   initialValue: _repaymentDuration.toString(),
-                                  decoration: InputDecoration(labelText: 'Durée'),
+                                  decoration: InputDecoration(labelText: l10n.duration),
                                   keyboardType: TextInputType.number,
                                   onChanged: (val) {
                                     _repaymentDuration = int.tryParse(val) ?? 1;
@@ -629,8 +767,12 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 flex: 3,
                                 child: DropdownButtonFormField<String>(
                                   value: _durationUnit,
-                                  decoration: InputDecoration(labelText: 'Unité'),
-                                  items: ['Mois', 'Années'].map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                                  decoration: InputDecoration(labelText: l10n.unit),
+                                  items: ['Mois', 'Années']
+                                      .map((u) => DropdownMenuItem(
+                                          value: u,
+                                          child: Text(_durationUnitLabel(l10n, u))))
+                                      .toList(),
                                   onChanged: (val) {
                                     setState(() {
                                       _durationUnit = val!;
@@ -644,8 +786,11 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                           const SizedBox(height: 16),
                           DropdownButtonFormField<String>(
                             value: _repaymentFrequency,
-                            decoration: InputDecoration(labelText: 'Fréquence de remboursement'),
-                            items: ['Mensuelle', 'Hebdomadaire', 'Quotidienne', 'Annuelle'].map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
+                            decoration: InputDecoration(labelText: l10n.repaymentFrequency),
+                            items: ['Mensuelle', 'Hebdomadaire', 'Quotidienne', 'Annuelle']
+                                .map((f) => DropdownMenuItem(
+                                    value: f, child: Text(_frequencyLabel(l10n, f))))
+                                .toList(),
                             onChanged: (val) {
                               setState(() {
                                 _repaymentFrequency = val!;
@@ -662,7 +807,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                             ),
                             child: Column(
                               children: [
-                                const Text('Montant par échéance', style: TextStyle(fontSize: 14)),
+                                Text(l10n.amountPerInstallment, style: const TextStyle(fontSize: 14)),
                                 const SizedBox(height: 8),
                                 Text(
                                   '${_installmentAmount.toStringAsFixed(2)} $currency',
@@ -687,7 +832,11 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               // Cash flow / Account link toggle
               SwitchListTile(
                 title: Text(l10n.linkToCashFlow),
-                subtitle: Text(l10n.linkToCashFlowDescription),
+                subtitle: Text(
+                  _isLinkedToCashFlow
+                      ? l10n.linkToCashFlowDescription
+                      : l10n.debtOpNoCashFlowImpact,
+                ),
                 value: _isLinkedToCashFlow,
                 onChanged: (val) {
                   setState(() {
@@ -697,6 +846,10 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                       if (_selectedAccountId == null && accounts.isNotEmpty) {
                         _selectedAccountId = accounts.first.id;
                       }
+                    } else {
+                      // Réinitialiser le compte et la catégorie pour garantir l'isolation
+                      _selectedAccountId = null;
+                      _selectedCategory = null;
                     }
                   });
                 },
@@ -708,25 +861,26 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                   DropdownButtonFormField<String>(
                     value: (accounts.any((a) => a.id == _selectedAccountId)) ? _selectedAccountId : null,
                     decoration: InputDecoration(
-                      labelText: 'Compte concerné *',
-                      hintText: 'Sélectionner un compte',
+                      labelText: l10n.concernedAccount,
+                      hintText: l10n.selectAccount,
                     ),
                     items: accounts.map((acc) => DropdownMenuItem(
                       value: acc.id,
-                      child: Text(acc.name.isNotEmpty ? acc.name : 'Sans nom'),
+                      child: Text(acc.name.isNotEmpty ? acc.name : l10n.untitled),
                     )).toList(),
                     onChanged: (val) {
                       setState(() {
                         _selectedAccountId = val;
                       });
                     },
-                    validator: (val) => (val == null || val.isEmpty) ? 'Veuillez choisir un compte' : null,
+                    validator: (val) =>
+                        (val == null || val.isEmpty) ? l10n.pleaseChooseAccount : null,
                   )
                 else
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
-                      'Aucun compte disponible pour être lié.',
+                      l10n.debtOpNoLinkableAccount,
                       style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
                     ),
                   ),
@@ -753,14 +907,47 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                 trailing: const Icon(Icons.calendar_today),
                 onTap: _pickDate,
                 shape: RoundedRectangleBorder(
-                  side: BorderSide(color: Colors.grey.shade400),
+                  side: BorderSide(color: colorScheme.outlineVariant),
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              if (!_isCreditSimulation) ...[
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: Text(l10n.debtOpSetDueDate),
+                  subtitle: Text(l10n.debtOpSetDueDateDesc),
+                  value: _hasDueDate,
+                  onChanged: (val) {
+                    setState(() {
+                      _hasDueDate = val;
+                      if (val && _selectedDueDate == null) {
+                        _selectedDueDate = _selectedDate.add(const Duration(days: 30));
+                      }
+                    });
+                  },
+                ),
+                if (_hasDueDate) ...[
+                  ListTile(
+                    title: Text(l10n.debtOpDueDatePlanned),
+                    subtitle: Text(
+                      _selectedDueDate != null
+                          ? '${_selectedDueDate!.day}/${_selectedDueDate!.month}/${_selectedDueDate!.year}'
+                          : l10n.selectDate,
+                      style: TextStyle(fontWeight: FontWeight.bold, color: dueDateAccent),
+                    ),
+                    trailing: Icon(Icons.event, color: dueDateAccent),
+                    onTap: _pickDueDate,
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(color: dueDateAccent),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ],
+              ],
               const SizedBox(height: 16),
               
               SwitchListTile(
-                title: const Text('Ajouter un commentaire'),
+                title: Text(l10n.addComment),
                 value: _addComment,
                 onChanged: (val) {
                   setState(() {
@@ -771,7 +958,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               if (_addComment) ...[
                 TextFormField(
                   decoration: InputDecoration(
-                    labelText: 'Commentaire (optionnel)',
+                    labelText: l10n.commentOptional,
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 2,
@@ -784,8 +971,8 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               ElevatedButton.icon(
                 onPressed: _save,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

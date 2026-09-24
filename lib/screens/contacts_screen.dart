@@ -44,7 +44,11 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.people_outline_rounded, size: 64, color: Colors.grey.shade400),
+                        Icon(
+                          Icons.people_outline_rounded,
+                          size: 64,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           l10n.noContactSaved,
@@ -54,7 +58,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                         Text(
                           l10n.addContactsExplanation,
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -65,6 +69,11 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   itemCount: contactProvider.contacts.length,
                   itemBuilder: (context, index) {
                     final contact = contactProvider.contacts[index];
+                    final pseudo = contact.pseudo.isNotEmpty ? contact.pseudo : contact.userCode;
+                    final subtitleParts = [
+                      if (contact.email.isNotEmpty) contact.email,
+                      if (pseudo.isNotEmpty) l10n.pseudoTag(pseudo),
+                    ];
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       elevation: 1,
@@ -83,9 +92,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
                           contact.displayName,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        subtitle: Text('${contact.email.isNotEmpty ? '${contact.email} • ' : ''}${l10n.pseudoTag(contact.userCode)}'),
+                        subtitle: Text(subtitleParts.join(' • ')),
                         trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                          icon: Icon(
+                            Icons.delete_outline_rounded,
+                            color: theme.colorScheme.error,
+                          ),
                           onPressed: () async {
                             final expenseProvider = context.read<ExpenseProvider>();
                             final contactExpenses = expenseProvider.expenses.where((e) =>
@@ -100,7 +112,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(l10n.contactHasActiveDebts(contact.displayName)),
-                                  backgroundColor: Colors.red,
+                                  backgroundColor: theme.colorScheme.error,
                                 ),
                               );
                               return;
@@ -118,7 +130,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                   ),
                                   TextButton(
                                     onPressed: () => Navigator.pop(context, true),
-                                    child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+                                    child: Text(
+                                      l10n.delete,
+                                      style: TextStyle(color: theme.colorScheme.error),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -133,10 +148,16 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                   );
                                 }
                               } catch (e) {
+                                // Détail technique gardé dans les logs,
+                                // message générique à l'écran.
+                                debugPrint(
+                                    'ContactsScreen: suppression du contact impossible : $e');
                                 if (mounted) {
-                                  final errorMsg = e.toString().replaceFirst('Exception: ', '');
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+                                    SnackBar(
+                                      content: Text(l10n.genericErrorRetry),
+                                      backgroundColor: theme.colorScheme.error,
+                                    ),
                                   );
                                 }
                               }

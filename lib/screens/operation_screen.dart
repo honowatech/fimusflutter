@@ -17,7 +17,7 @@ import '../providers/expense_provider.dart';
 import '../providers/account_provider.dart';
 import '../models/expense.dart';
 import '../services/database_service.dart';
-import '../utils/translation_helper.dart';
+import '../widgets/category_form_field.dart';
 import '../providers/auth_provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -66,6 +66,10 @@ class _OperationScreenState extends State<OperationScreen> {
   // émetteurs de monnaie électronique (Orange comme MTN), le calcul est commun.
   bool get _supportsWithdrawalFees => _isMoneyTransfer && (_isOrange || _isMTN);
 
+  // PALETTE VOLONTAIREMENT FIGÉE : ces deux teintes sont les couleurs
+  // d'identité des opérateurs (Orange / MTN), elles distinguent l'émetteur et
+  // ne doivent pas fusionner avec `warning`. Elles restent suffisamment
+  // lumineuses (#F57C00 / #FF8F00) pour rester lisibles sur surface sombre.
   Color get _operatorAccentColor => _isOrange
       ? Colors.orange.shade700
       : (_isMTN
@@ -203,35 +207,6 @@ class _OperationScreenState extends State<OperationScreen> {
     } catch (e) {
       // L'utilisateur a annulé ou une erreur est survenue (ex: permission refusée)
     }
-  }
-
-  Future<String?> _showAddCategoryDialog() async {
-    final l10n = AppLocalizations.of(context)!;
-    String name = '';
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.addExpenseCategory),
-        content: TextFormField(
-          autofocus: true,
-          onChanged: (val) => name = val,
-          decoration: InputDecoration(labelText: l10n.categoryName),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
-          TextButton(
-            onPressed: () {
-              if (name.trim().isNotEmpty) {
-                final provider = Provider.of<ExpenseProvider>(context, listen: false);
-                provider.addCategory(name.trim(), isIncome: false);
-                Navigator.pop(ctx, name.trim());
-              }
-            },
-            child: Text(l10n.save),
-          ),
-        ],
-      ),
-    );
   }
 
   // --------------------------------------------------------------------------
@@ -517,7 +492,8 @@ class _OperationScreenState extends State<OperationScreen> {
     final textStyle = TextStyle(
       fontSize: isSecondary ? 12 : 13,
       fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-      color: color ?? (isSecondary ? Colors.grey.shade600 : null),
+      color: color ??
+          (isSecondary ? Theme.of(context).colorScheme.onSurfaceVariant : null),
     );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
@@ -667,19 +643,21 @@ class _OperationScreenState extends State<OperationScreen> {
                           elevation: 0,
                           color: _includeFees
                               ? _operatorAccentColor.withOpacity(0.08)
-                              : Colors.grey.withOpacity(0.07),
+                              : Theme.of(context).colorScheme.surfaceContainerLow,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
                               color: _includeFees
                                   ? _operatorAccentColor.withOpacity(0.4)
-                                  : Colors.grey.withOpacity(0.2),
+                                  : Theme.of(context).colorScheme.outlineVariant,
                             ),
                           ),
                           child: SwitchListTile(
                             secondary: Icon(
                               Icons.calculate_outlined,
-                              color: _includeFees ? _operatorAccentColor : Colors.grey,
+                              color: _includeFees
+                                  ? _operatorAccentColor
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                             title: Text(
                               l10n.includeWithdrawalFees,
@@ -711,19 +689,21 @@ class _OperationScreenState extends State<OperationScreen> {
                           elevation: 0,
                           color: _buyForAnother
                               ? _operatorAccentColor.withOpacity(0.08)
-                              : Colors.grey.withOpacity(0.07),
+                              : Theme.of(context).colorScheme.surfaceContainerLow,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
                               color: _buyForAnother
                                   ? _operatorAccentColor.withOpacity(0.4)
-                                  : Colors.grey.withOpacity(0.2),
+                                  : Theme.of(context).colorScheme.outlineVariant,
                             ),
                           ),
                           child: SwitchListTile(
                             secondary: Icon(
                               Icons.person_add_alt_1_outlined,
-                              color: _buyForAnother ? _operatorAccentColor : Colors.grey,
+                              color: _buyForAnother
+                                  ? _operatorAccentColor
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                             title: Text(
                               l10n.buyForAnother,
@@ -777,19 +757,21 @@ class _OperationScreenState extends State<OperationScreen> {
                       elevation: 0,
                       color: _saveAsExpense
                           ? _operatorAccentColor.withOpacity(0.08)
-                          : Colors.grey.withOpacity(0.07),
+                          : Theme.of(context).colorScheme.surfaceContainerLow,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
                           color: _saveAsExpense
                               ? _operatorAccentColor.withOpacity(0.4)
-                              : Colors.grey.withOpacity(0.2),
+                              : Theme.of(context).colorScheme.outlineVariant,
                         ),
                       ),
                       child: SwitchListTile(
                         secondary: Icon(
                           Icons.receipt_outlined,
-                          color: _saveAsExpense ? _operatorAccentColor : Colors.grey,
+                          color: _saveAsExpense
+                              ? _operatorAccentColor
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         title: Text(
                           l10n.saveAsExpense,
@@ -813,45 +795,19 @@ class _OperationScreenState extends State<OperationScreen> {
                     ),
                     const SizedBox(height: 12),
                     if (_saveAsExpense) ...[
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategory,
-                        decoration: InputDecoration(labelText: l10n.category),
-                        items: [
-                          ...Provider.of<ExpenseProvider>(context).expenseCategories.map((cat) => DropdownMenuItem(
-                            value: cat,
-                            child: Text(l10n.translateCategory(cat)),
-                          )).toList(),
-                          DropdownMenuItem(
-                            value: '__add_new__',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.add, size: 18),
-                                const SizedBox(width: 8),
-                                Text(l10n.addNew),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onChanged: (val) async {
-                          if (val == '__add_new__') {
-                            final newCategory = await _showAddCategoryDialog();
-                            if (newCategory != null) {
-                              setState(() {
-                                _selectedCategory = newCategory;
-                              });
-                            } else {
-                              setState(() {
-                                final categories = Provider.of<ExpenseProvider>(context, listen: false).expenseCategories;
-                                _selectedCategory = categories.contains(_selectedCategory) ? _selectedCategory : null;
-                              });
-                            }
-                          } else {
-                            setState(() {
-                              _selectedCategory = val;
-                            });
-                          }
-                        },
-                        validator: (val) => _saveAsExpense && (val == null || val == '__add_new__') ? l10n.pleaseChooseCategory : null,
+                      CategoryFormField(
+                        categories:
+                            Provider.of<ExpenseProvider>(context).expenseCategories,
+                        initialValue: _selectedCategory,
+                        labelText: l10n.category,
+                        validator: (val) => _saveAsExpense &&
+                                (val == null || val.trim().isEmpty)
+                            ? l10n.pleaseChooseCategory
+                            : null,
+                        onChanged: (val) => setState(() {
+                          _selectedCategory = val;
+                        }),
+                        onSaved: (val) => _selectedCategory = val,
                       ),
                       const SizedBox(height: 16),
                       if (Provider.of<AccountProvider>(context).accounts.isNotEmpty)
@@ -868,7 +824,7 @@ class _OperationScreenState extends State<OperationScreen> {
                             ),
                             ...Provider.of<AccountProvider>(context).accounts.map((acc) => DropdownMenuItem(
                               value: acc.id,
-                              child: Text(acc.name.isNotEmpty ? acc.name : 'Sans nom'),
+                              child: Text(acc.name.isNotEmpty ? acc.name : l10n.untitled),
                             )).toList()
                           ],
                           onChanged: (val) {
@@ -894,7 +850,7 @@ class _OperationScreenState extends State<OperationScreen> {
                     onPressed: _execute,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: color,
-                      foregroundColor: Colors.white,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

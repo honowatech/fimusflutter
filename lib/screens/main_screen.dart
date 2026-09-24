@@ -11,21 +11,27 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/notification_preferences_provider.dart';
+import '../providers/profile_provider.dart';
 import '../services/notification_permission_service.dart';
 import '../services/notification_service.dart';
+import '../services/alerts/local_alerts_hook.dart';
 import 'notifications_screen.dart';
+import 'products_screen.dart';
+import 'staff_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  static final GlobalKey<MainScreenState> globalKey = GlobalKey<MainScreenState>();
+
+  MainScreen({Key? key}) : super(key: key ?? globalKey);
 
   static MainScreenState? of(BuildContext context) =>
-      context.findAncestorStateOfType<MainScreenState>();
+      context.findAncestorStateOfType<MainScreenState>() ?? globalKey.currentState;
 
   @override
   State<MainScreen> createState() => MainScreenState();
 }
 
-class MainScreenState extends State<MainScreen> {
+class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   late PageController _pageController;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -34,6 +40,7 @@ class MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _selectedIndex);
+    WidgetsBinding.instance.addObserver(this);
 
     // Listen to connectivity changes to sync when connection is restored
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
@@ -44,26 +51,52 @@ class MainScreenState extends State<MainScreen> {
       }
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       NotificationService().syncFcmToken();
       if (mounted) {
-        context.read<NotificationPermissionService>().checkPermission();
+        final permissionService = context.read<NotificationPermissionService>();
+        try {
+          // On se contente de relever l'état de la permission : la demande
+          // elle-même est contextualisée (bandeau d'accueil et écran
+          // Profil > Notifications). La relancer à chaque montage ne servait
+          // à rien — le système ne réaffiche pas la boîte de dialogue une fois
+          // la décision prise — et privait l'utilisateur de toute explication.
+          await permissionService.checkPermission();
+        } catch (e) {
+          debugPrint('Error requesting notification permission: $e');
+        }
+      }
+      if (mounted) {
         context.read<NotificationProvider>().fetch();
         context.read<NotificationPreferencesProvider>().fetchPreferences();
       }
-      if (NotificationService.pendingNotificationData != null) {
-        final data = NotificationService.pendingNotificationData!;
-        NotificationService.pendingNotificationData = null;
-        NotificationService().handleNotificationData(data);
-      }
+      // Tap / action issus d'une notification (cold start, prefs, FCM).
+      await NotificationService().consumePendingOnLaunch();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _connectivitySubscription?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed) return;
+    // Un bouton de notification (« Confirmer » / « Annuler ») appuyé pendant
+    // que l'app était en tâche de fond est traité dans un isolat séparé, qui
+    // ne peut que persister l'intention. On la relit à chaque reprise.
+    // drain() ne fait rien tant que le verrou PIN n'est pas levé : si
+    // _AuthGate réaffiche LockScreen, c'est LockScreen qui relancera le rejeu.
+    NotificationService().consumePendingOnLaunch();
+    // Rattrapage des alertes locales retenues pendant les heures calmes :
+    // sans ce passage, une alerte différée n'apparaîtrait qu'à la prochaine
+    // opération de l'utilisateur.
+    runLocalAlerts(context);
   }
 
   void setSelectedIndex(int index) {
@@ -86,18 +119,39 @@ class MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final profileProvider = Provider.of<ProfileProvider>(context);
+    final profile = profileProvider.profile;
+
+    final Widget specializedPage;
+    final String specializedLabel;
+    final IconData specializedIcon;
+
+    if (profile.hasProducts) {
+      specializedPage = ProductsScreen(key: ProductsScreen.globalKey);
+      specializedLabel = l10n.navProducts;
+      specializedIcon = Icons.storefront_rounded;
+    } else if (profile.hasStaff) {
+      specializedPage = StaffScreen(key: StaffScreen.globalKey);
+      specializedLabel = l10n.navStaff;
+      specializedIcon = Icons.badge_rounded;
+    } else {
+      specializedPage = UssdScreen(key: UssdScreen.globalKey);
+      specializedLabel = l10n.ussdMenu;
+      specializedIcon = Icons.dialpad;
+    }
+
     final List<Widget> pages = [
       HomeScreen(),
       ExpenseScreen(),
       DebtScreen(),
-      UssdScreen(key: UssdScreen.globalKey),
+      specializedPage,
       ProfileScreen(),
     ];
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         title: Text(
           _selectedIndex == 0
               ? l10n.home
@@ -106,7 +160,7 @@ class MainScreenState extends State<MainScreen> {
                   : _selectedIndex == 2
                       ? l10n.debtsAndReceivables
                       : _selectedIndex == 3
-                          ? l10n.ussdMenu
+                          ? specializedLabel
                           : l10n.profile,
         ),
         actions: [
@@ -130,9 +184,12 @@ class MainScreenState extends State<MainScreen> {
                       child: Badge(
                         label: Text(
                           notificationProvider.unreadCount.toString(),
-                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onError,
+                            fontSize: 10,
+                          ),
                         ),
-                        backgroundColor: Colors.red,
+                        backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     ),
                 ],
@@ -149,7 +206,13 @@ class MainScreenState extends State<MainScreen> {
                 } else if (_selectedIndex == 2) {
                   DebtScreen.globalKey.currentState?.handleFabPress();
                 } else if (_selectedIndex == 3) {
-                  UssdScreen.globalKey.currentState?.handleFabPress();
+                  if (profile.hasProducts) {
+                    ProductsScreen.globalKey.currentState?.handleFabPress();
+                  } else if (profile.hasStaff) {
+                    StaffScreen.globalKey.currentState?.handleFabPress();
+                  } else {
+                    UssdScreen.globalKey.currentState?.handleFabPress();
+                  }
                 }
               },
               child: Icon(Icons.add, color: Theme.of(context).colorScheme.primary, weight: 900, size: 28),
@@ -181,8 +244,8 @@ class MainScreenState extends State<MainScreen> {
             label: l10n.debtsAndReceivables,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.dialpad),
-            label: l10n.ussdMenu,
+            icon: Icon(specializedIcon),
+            label: specializedLabel,
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.person),
@@ -190,7 +253,7 @@ class MainScreenState extends State<MainScreen> {
           ),
         ],
         selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey.shade600,
+        unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
         type: BottomNavigationBarType.fixed,
         showSelectedLabels: true,
         showUnselectedLabels: true,

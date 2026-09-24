@@ -16,9 +16,11 @@ import 'package:uuid/uuid.dart';
 import '../providers/history_provider.dart';
 import '../models/ussd_history.dart';
 import '../utils/translation_helper.dart';
+import '../utils/app_theme.dart';
 
 class UssdScreen extends StatefulWidget {
-  static final GlobalKey<UssdScreenState> globalKey = GlobalKey<UssdScreenState>();
+  static final GlobalKey<UssdScreenState> globalKey =
+      GlobalKey<UssdScreenState>();
 
   const UssdScreen({super.key});
 
@@ -44,7 +46,9 @@ class UssdScreenState extends State<UssdScreen> {
     final provider = context.read<UssdProvider>();
     final country = profileProvider.profile.country;
     if (country != 'Tous' && country.isNotEmpty) {
-      final hasLocalOperators = provider.operators.any((op) => op.country.toLowerCase() == country.toLowerCase());
+      final hasLocalOperators = provider.operators.any(
+        (op) => op.country.toLowerCase() == country.toLowerCase(),
+      );
       if (!hasLocalOperators) {
         setState(() => _isLoadingReference = true);
       }
@@ -60,6 +64,7 @@ class UssdScreenState extends State<UssdScreen> {
     final profileProvider = Provider.of<ProfileProvider>(context);
     final _selectedCountry = profileProvider.profile.country;
     final allOperators = provider.operators;
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (allOperators.isEmpty) {
       return Scaffold(
@@ -69,7 +74,10 @@ class UssdScreenState extends State<UssdScreen> {
               icon: const Icon(Icons.history),
               tooltip: l10n.history,
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                );
               },
             ),
           ],
@@ -92,30 +100,51 @@ class UssdScreenState extends State<UssdScreen> {
                               const CircularProgressIndicator(),
                               const SizedBox(height: 16),
                               Text(
-                                'Chargement des codes USSD...',
-                                style: TextStyle(color: Colors.grey[600]),
+                                l10n.ussdLoadingCodes,
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ],
                           )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.sim_card_outlined, size: 64, color: Colors.grey[400]),
+                              Icon(
+                                Icons.sim_card_outlined,
+                                size: 64,
+                                // Icone decorative : gris clair d'origine rendu
+                                // par une variante attenuee du jeton.
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
+                              ),
                               const SizedBox(height: 16),
                               Text(
-                                'Aucun opérateur disponible',
-                                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                                l10n.ussdNoOperatorAvailable,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Sélectionnez un pays ou ajoutez un opérateur',
-                                style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                                l10n.ussdSelectCountryOrAddOperator,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.7),
+                                ),
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 24),
                               ElevatedButton.icon(
                                 onPressed: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AddOperatorScreen()));
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const AddOperatorScreen(),
+                                    ),
+                                  );
                                 },
                                 icon: const Icon(Icons.add),
                                 label: Text(l10n.addOperator),
@@ -164,51 +193,70 @@ class UssdScreenState extends State<UssdScreen> {
               icon: const Icon(Icons.history),
               tooltip: l10n.history,
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                );
               },
             ),
           ],
           bottom: TabBar(
             isScrollable: true,
             tabs: [
-              ...filteredOperators.map((op) => Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isEditing) ...[
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.white),
-                        onPressed: () => _confirmDeleteOperator(context, provider, op),
-                      ),
-                      const SizedBox(width: 8),
+              ...filteredOperators.map(
+                (op) => Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_isEditing) ...[
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            // Pose sur l'AppBar coloree (primary).
+                            color: colorScheme.onPrimary,
+                          ),
+                          onPressed: () =>
+                              _confirmDeleteOperator(context, provider, op),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(op.name),
+                      if (_isEditing) ...[
+                        const SizedBox(width: 6),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: colorScheme.onPrimary.withValues(alpha: 0.7),
+                          ),
+                          onPressed: () =>
+                              _editOperatorDialog(context, provider, op),
+                        ),
+                      ],
                     ],
-                    Text(op.name),
-                    if (_isEditing) ...[
-                      const SizedBox(width: 6),
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.edit, size: 14, color: Colors.white70),
-                        onPressed: () => _editOperatorDialog(context, provider, op),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              )),
+              ),
               const Tab(icon: Icon(Icons.add)),
             ],
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
+            indicatorColor: colorScheme.onPrimary,
+            labelColor: colorScheme.onPrimary,
+            unselectedLabelColor: colorScheme.onPrimary.withValues(alpha: 0.7),
           ),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
         ),
         body: TabBarView(
           children: [
-            ...filteredOperators.map((op) => UssdProviderList(operatorId: op.id, isEditing: _isEditing)),
+            ...filteredOperators.map(
+              (op) =>
+                  UssdProviderList(operatorId: op.id, isEditing: _isEditing),
+            ),
             Builder(
               builder: (context) {
                 return RefreshIndicator(
@@ -230,31 +278,47 @@ class UssdScreenState extends State<UssdScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary.withOpacity(0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
                                       Icons.sim_card,
                                       size: 64,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                   ),
                                   const SizedBox(height: 24),
                                   Text(
                                     l10n.addOperator,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    "Configurez un nouvel opérateur télécom pour vos codes USSD",
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                                    l10n.ussdAddOperatorSubtitle,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontSize: 14,
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 24),
                                   ElevatedButton.icon(
-                                    onPressed: () => _showAddOperatorDialog(context, provider),
+                                    onPressed: () => _showAddOperatorDialog(
+                                      context,
+                                      provider,
+                                    ),
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
+                                      ),
                                     ),
                                     icon: const Icon(Icons.add),
                                     label: Text(l10n.addOperator),
@@ -281,12 +345,16 @@ class UssdScreenState extends State<UssdScreen> {
     showAddOperationOptions(context, provider);
   }
 
-  void _editOperatorDialog(BuildContext context, UssdProvider provider, TelecomOperator operator) {
+  void _editOperatorDialog(
+    BuildContext context,
+    UssdProvider provider,
+    TelecomOperator operator,
+  ) {
     final l10n = AppLocalizations.of(context)!;
     String name = operator.name;
     String phone = operator.userPhoneNumber ?? '';
     String country = operator.country;
-    
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -318,15 +386,22 @@ class UssdScreenState extends State<UssdScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
           TextButton(
             onPressed: () {
-              provider.updateOperator(TelecomOperator(
-                id: operator.id,
-                name: name.trim().isEmpty ? operator.name : name.trim(),
-                userPhoneNumber: phone.trim().isEmpty ? null : phone.trim(),
-                country: country.trim().isEmpty ? operator.country : country.trim(),
-              ));
+              provider.updateOperator(
+                TelecomOperator(
+                  id: operator.id,
+                  name: name.trim().isEmpty ? operator.name : name.trim(),
+                  userPhoneNumber: phone.trim().isEmpty ? null : phone.trim(),
+                  country: country.trim().isEmpty
+                      ? operator.country
+                      : country.trim(),
+                ),
+              );
               Navigator.pop(ctx);
             },
             child: Text(l10n.save),
@@ -336,7 +411,11 @@ class UssdScreenState extends State<UssdScreen> {
     );
   }
 
-  void _confirmDeleteOperator(BuildContext context, UssdProvider provider, TelecomOperator operator) {
+  void _confirmDeleteOperator(
+    BuildContext context,
+    UssdProvider provider,
+    TelecomOperator operator,
+  ) {
     final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
@@ -344,13 +423,18 @@ class UssdScreenState extends State<UssdScreen> {
         title: Text(l10n.deleteOperator),
         content: Text(l10n.deleteOperatorConfirm(operator.name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
           TextButton(
             onPressed: () {
               provider.deleteOperator(operator.id);
               Navigator.pop(ctx);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: Text(l10n.delete),
           ),
         ],
@@ -376,7 +460,8 @@ class UssdScreenState extends State<UssdScreen> {
             children: [
               TextFormField(
                 decoration: InputDecoration(labelText: l10n.operatorName),
-                validator: (val) => val == null || val.isEmpty ? l10n.required : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? l10n.required : null,
                 onSaved: (val) => name = val!.trim(),
               ),
               const SizedBox(height: 16),
@@ -394,7 +479,8 @@ class UssdScreenState extends State<UssdScreen> {
                 labelBuilder: (c) => c['name'] ?? '',
                 valueBuilder: (c) => c['name'] ?? '',
                 decoration: InputDecoration(labelText: l10n.country),
-                validator: (val) => val == null || val.isEmpty ? l10n.required : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? l10n.required : null,
                 onSaved: (val) => country = val!.trim(),
               ),
             ],
@@ -410,12 +496,14 @@ class UssdScreenState extends State<UssdScreen> {
               if (formKey.currentState!.validate()) {
                 formKey.currentState!.save();
                 final id = 'op_${DateTime.now().millisecondsSinceEpoch}';
-                provider.addOperator(TelecomOperator(
-                  id: id,
-                  name: name,
-                  userPhoneNumber: phone.isEmpty ? null : phone,
-                  country: country,
-                ));
+                provider.addOperator(
+                  TelecomOperator(
+                    id: id,
+                    name: name,
+                    userPhoneNumber: phone.isEmpty ? null : phone,
+                    country: country,
+                  ),
+                );
                 Navigator.pop(ctx);
               }
             },
@@ -436,33 +524,43 @@ class UssdScreenState extends State<UssdScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                l10n.addUssdCodeFor,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              if (operators.isEmpty)
-                Text(l10n.noOperatorAvailable, textAlign: TextAlign.center),
-              ...operators.map((op) => ListTile(
-                leading: const Icon(Icons.sim_card),
-                title: Text(op.name),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => AddOperationScreen(operatorId: op.id)),
-                  );
-                },
-              )),
-              const SizedBox(height: 8),
-            ],
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.addUssdCodeFor,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                if (operators.isEmpty)
+                  Text(l10n.noOperatorAvailable, textAlign: TextAlign.center),
+                ...operators.map(
+                  (op) => ListTile(
+                    leading: const Icon(Icons.sim_card),
+                    title: Text(op.name),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddOperationScreen(operatorId: op.id),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },
@@ -474,9 +572,17 @@ class UssdProviderList extends StatelessWidget {
   final String operatorId;
   final bool isEditing;
 
-  const UssdProviderList({super.key, required this.operatorId, required this.isEditing});
+  const UssdProviderList({
+    super.key,
+    required this.operatorId,
+    required this.isEditing,
+  });
 
-  void _showEditOperationDialog(BuildContext context, UssdProvider provider, UssdOperation op) {
+  void _showEditOperationDialog(
+    BuildContext context,
+    UssdProvider provider,
+    UssdOperation op,
+  ) {
     final l10n = AppLocalizations.of(context)!;
     String name = op.name;
     String template = op.defaultTemplate;
@@ -524,13 +630,19 @@ class UssdProviderList extends StatelessWidget {
     );
   }
 
-  void _confirmDeleteOperation(BuildContext context, UssdProvider provider, UssdOperation op) {
+  void _confirmDeleteOperation(
+    BuildContext context,
+    UssdProvider provider,
+    UssdOperation op,
+  ) {
     final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l10n.deleteOperation),
-        content: Text(l10n.deleteOperationConfirm(l10n.translateUssdAction(op.name))),
+        content: Text(
+          l10n.deleteOperationConfirm(l10n.translateUssdAction(op.name)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -541,7 +653,9 @@ class UssdProviderList extends StatelessWidget {
               provider.deleteOperation(op.id);
               Navigator.pop(ctx);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: Text(l10n.delete),
           ),
         ],
@@ -553,13 +667,21 @@ class UssdProviderList extends StatelessWidget {
     final lowerCat = op.category.toLowerCase();
     final lowerName = op.name.toLowerCase();
 
-    if (lowerCat.contains('dépôt') || lowerCat.contains('depot') || lowerName.contains('dépôt') || lowerName.contains('depot') || lowerName.contains('cash-in')) {
+    if (lowerCat.contains('dépôt') ||
+        lowerCat.contains('depot') ||
+        lowerName.contains('dépôt') ||
+        lowerName.contains('depot') ||
+        lowerName.contains('cash-in')) {
       return 0;
     }
-    if (lowerCat.contains('retrait') || lowerName.contains('retrait') || lowerName.contains('cash-out')) {
+    if (lowerCat.contains('retrait') ||
+        lowerName.contains('retrait') ||
+        lowerName.contains('cash-out')) {
       return 1;
     }
-    if (lowerName.contains('solde') || lowerName.contains('flotte') || lowerName.contains('uv')) {
+    if (lowerName.contains('solde') ||
+        lowerName.contains('flotte') ||
+        lowerName.contains('uv')) {
       return 2;
     }
     if (lowerCat.contains('marchand') || lowerName.contains('marchand')) {
@@ -571,31 +693,62 @@ class UssdProviderList extends StatelessWidget {
     return 5;
   }
 
-  Widget _buildCard(BuildContext context, UssdProvider provider, UssdOperation op) {
+  Widget _buildCard(
+    BuildContext context,
+    UssdProvider provider,
+    UssdOperation op,
+  ) {
     final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     IconData iconData = Icons.phone_android;
-    Color iconBgColor = Theme.of(context).colorScheme.primary.withOpacity(0.15);
-    Color iconColor = Theme.of(context).colorScheme.primary;
+    Color iconBgColor = colorScheme.primary.withValues(alpha: 0.15);
+    Color iconColor = colorScheme.primary;
 
     final lowerCat = op.category.toLowerCase();
     final lowerName = op.name.toLowerCase();
 
-    if (lowerCat.contains('dépôt') || lowerCat.contains('depot') || lowerName.contains('dépôt') || lowerName.contains('depot') || lowerName.contains('cash-in')) {
+    if (lowerCat.contains('dépôt') ||
+        lowerCat.contains('depot') ||
+        lowerName.contains('dépôt') ||
+        lowerName.contains('depot') ||
+        lowerName.contains('cash-in')) {
       iconData = Icons.arrow_downward_rounded;
-      iconBgColor = Colors.green.withOpacity(0.18);
-      iconColor = Colors.green.shade700;
-    } else if (lowerCat.contains('retrait') || lowerName.contains('retrait') || lowerName.contains('cash-out')) {
+      // Teintes de categorie : litteraux d'origine conserves en clair,
+      // equivalents lisibles sur fond sombre.
+      iconBgColor = colorScheme
+          .tone(light: Colors.green, dark: colorScheme.success)
+          .withValues(alpha: 0.18);
+      iconColor = colorScheme.tone(
+        light: Colors.green.shade700,
+        dark: colorScheme.success,
+      );
+    } else if (lowerCat.contains('retrait') ||
+        lowerName.contains('retrait') ||
+        lowerName.contains('cash-out')) {
       iconData = Icons.arrow_upward_rounded;
-      iconBgColor = Colors.orange.withOpacity(0.18);
-      iconColor = Colors.orange.shade800;
-    } else if (lowerCat.contains('marchand') || lowerName.contains('marchand')) {
+      iconBgColor = colorScheme
+          .tone(light: Colors.orange, dark: colorScheme.warning)
+          .withValues(alpha: 0.18);
+      iconColor = colorScheme.warning; // clair = Colors.orange.shade800
+    } else if (lowerCat.contains('marchand') ||
+        lowerName.contains('marchand')) {
       iconData = Icons.storefront_rounded;
-      iconBgColor = Colors.purple.withOpacity(0.18);
-      iconColor = Colors.purple;
+      // Pas de jeton semantique pour le violet : teinte figee, variante
+      // pastel en sombre pour rester lisible sur surface foncee.
+      const darkPurple = Color(0xFFD0BCFF);
+      iconBgColor = colorScheme
+          .tone(light: Colors.purple, dark: darkPurple)
+          .withValues(alpha: 0.18);
+      iconColor = colorScheme.tone(light: Colors.purple, dark: darkPurple);
     } else if (lowerCat.contains('solde') || lowerName.contains('solde')) {
       iconData = Icons.account_balance_wallet_rounded;
-      iconBgColor = Colors.blue.withOpacity(0.18);
-      iconColor = Colors.blue.shade700;
+      iconBgColor = colorScheme
+          .tone(light: Colors.blue, dark: colorScheme.info)
+          .withValues(alpha: 0.18);
+      iconColor = colorScheme.tone(
+        light: Colors.blue.shade700,
+        dark: colorScheme.info,
+      );
     }
 
     final bool isOpEnabled = op.isEnabled;
@@ -604,13 +757,17 @@ class UssdProviderList extends StatelessWidget {
       key: ValueKey(op.id),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: isEditing ? 2 : 1,
-      color: (!isOpEnabled && isEditing) ? Theme.of(context).cardColor.withOpacity(0.6) : null,
+      color: (!isOpEnabled && isEditing)
+          ? Theme.of(context).cardColor.withValues(alpha: 0.6)
+          : null,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: isOpEnabled ? iconBgColor : Colors.grey.withOpacity(0.2),
+          backgroundColor: isOpEnabled
+              ? iconBgColor
+              : colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
           child: Icon(
             iconData,
-            color: isOpEnabled ? iconColor : Colors.grey,
+            color: isOpEnabled ? iconColor : colorScheme.onSurfaceVariant,
           ),
         ),
         title: Row(
@@ -620,7 +777,9 @@ class UssdProviderList extends StatelessWidget {
                 l10n.translateUssdAction(op.name),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: (!isOpEnabled && isEditing) ? Colors.grey : null,
+                  color: (!isOpEnabled && isEditing)
+                      ? colorScheme.onSurfaceVariant
+                      : null,
                 ),
               ),
             ),
@@ -629,66 +788,91 @@ class UssdProviderList extends StatelessWidget {
                 margin: const EdgeInsets.only(left: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  'Masqué',
-                  style: TextStyle(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.bold),
+                child: Text(
+                  l10n.ussdHiddenBadge,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
           ],
         ),
         subtitle: Text(
           op.activeTemplate,
-          style: TextStyle(color: (!isOpEnabled && isEditing) ? Colors.grey : null),
+          style: TextStyle(
+            color: (!isOpEnabled && isEditing)
+                ? colorScheme.onSurfaceVariant
+                : null,
+          ),
         ),
         trailing: isEditing
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Tooltip(
-                    message: isOpEnabled ? 'Masquer l\'opération' : 'Afficher l\'opération',
+                    message: isOpEnabled
+                        ? l10n.ussdHideOperation
+                        : l10n.ussdShowOperation,
                     child: Switch(
                       value: isOpEnabled,
-                      activeColor: Theme.of(context).colorScheme.primary,
+                      activeColor: colorScheme.primary,
                       onChanged: (val) {
                         provider.toggleOperationEnabled(op.id, val);
                       },
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    onPressed: () => _confirmDeleteOperation(context, provider, op),
+                    icon: Icon(
+                      Icons.delete_outline,
+                      color: colorScheme.error,
+                    ),
+                    onPressed: () =>
+                        _confirmDeleteOperation(context, provider, op),
                   ),
-                  const Icon(Icons.swap_vert, size: 28, color: Colors.grey),
+                  Icon(
+                    Icons.swap_vert,
+                    size: 28,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ],
               )
             : null,
-        onLongPress: isEditing ? null : () => _showEditOperationDialog(context, provider, op),
+        onLongPress: isEditing
+            ? null
+            : () => _showEditOperationDialog(context, provider, op),
         onTap: isEditing
             ? () => _showEditOperationDialog(context, provider, op)
             : () async {
                 if (op.requiredFields.isEmpty) {
                   try {
                     await UssdService.executeUssd(op.activeTemplate, {});
-                    
-                    final historyProvider = Provider.of<HistoryProvider>(context, listen: false);
+
+                    final historyProvider = Provider.of<HistoryProvider>(
+                      context,
+                      listen: false,
+                    );
                     final operatorObj = provider.getOperatorById(operatorId);
                     final providerName = operatorObj?.name ?? operatorId;
-                    
-                    historyProvider.addHistoryEntry(UssdHistory(
-                      id: const Uuid().v4(),
-                      operationName: op.name,
-                      providerName: providerName,
-                      ussdCode: op.activeTemplate,
-                      date: DateTime.now(),
-                    ));
+
+                    historyProvider.addHistoryEntry(
+                      UssdHistory(
+                        id: const Uuid().v4(),
+                        operationName: op.name,
+                        providerName: providerName,
+                        ussdCode: op.activeTemplate,
+                        date: DateTime.now(),
+                      ),
+                    );
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString())),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(e.toString())));
                     }
                   }
                 } else {
@@ -711,14 +895,17 @@ class UssdProviderList extends StatelessWidget {
     final profileProvider = Provider.of<ProfileProvider>(context);
     final isProfessionnel = profileProvider.profile.isProfessionnel;
 
-    List<UssdOperation> operations = provider.getOperationsForProvider(operatorId);
+    List<UssdOperation> operations = provider.getOperationsForProvider(
+      operatorId,
+    );
     if (!isEditing) {
       // En mode affichage normal, masquer les opérations désactivées
       operations = operations.where((op) => op.isEnabled == true).toList();
     }
     if (!isProfessionnel) {
       // Pour les particuliers, masquer les opérations spécifiques aux agents
-      operations = operations.where((op) => op.isAgentOperation != true).toList();
+      operations =
+          operations.where((op) => op.isAgentOperation != true).toList();
     } else if (!isEditing) {
       // Pour les professionnels / agents, afficher toutes les opérations et prioriser les opérations agent
       operations = List<UssdOperation>.from(operations);
@@ -759,7 +946,9 @@ class UssdProviderList extends StatelessWidget {
             provider.reorderOperations(operatorId, oldIndex, newIndex);
           },
           padding: const EdgeInsets.symmetric(vertical: 8),
-          children: operations.map((op) => _buildCard(context, provider, op)).toList(),
+          children: operations
+              .map((op) => _buildCard(context, provider, op))
+              .toList(),
         ),
       );
     } else {

@@ -16,7 +16,8 @@ class AddContactBottomSheet extends StatefulWidget {
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom +
+              MediaQuery.of(ctx).padding.bottom,
         ),
         child: const AddContactBottomSheet(),
       ),
@@ -91,7 +92,7 @@ class _AddContactBottomSheetState extends State<AddContactBottomSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${l10n.errorOccurred} : ${e.toString().replaceFirst('Exception: ', '')}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -105,6 +106,7 @@ class _AddContactBottomSheetState extends State<AddContactBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -144,7 +146,7 @@ class _AddContactBottomSheetState extends State<AddContactBottomSheet> {
             if (_selectedMode == 'fimus') ...[
               Text(
                 l10n.addContactsExplanation,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -176,7 +178,7 @@ class _AddContactBottomSheetState extends State<AddContactBottomSheet> {
             ] else ...[
               Text(
                 'Un nom local pour organiser vos dépenses, sans compte associé.',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -201,28 +203,29 @@ class _AddContactBottomSheetState extends State<AddContactBottomSheet> {
             ElevatedButton(
               onPressed: _isLoading ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+                backgroundColor: scheme.primary,
+                foregroundColor: scheme.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: _isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(scheme.onPrimary),
                       ),
                     )
                   : Text(
                       l10n.add,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: scheme.onPrimary,
                       ),
                     ),
             ),

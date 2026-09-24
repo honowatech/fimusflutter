@@ -2,15 +2,12 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/announcement.dart';
+import '../utils/api_client.dart';
 import '../utils/api_config.dart';
 
 class AnnouncementService {
-  final Dio _dio = Dio();
+  Dio get _dio => ApiClient.instance;
   static const String _cacheKey = 'cached_announcement_config';
-
-  AnnouncementService() {
-    _dio.options.headers['Accept'] = 'application/json';
-  }
 
   Future<AnnouncementConfig?> getCachedAnnouncementConfig() async {
     try {

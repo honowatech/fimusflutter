@@ -4,10 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
-import '../services/exchange_rate_service.dart';
 import '../services/sync_service.dart';
 import '../utils/countries_data.dart';
-import '../utils/currency_converter.dart';
 
 class ProfileProvider with ChangeNotifier {
   UserProfile _profile = UserProfile(firstName: 'Utilisateur', lastName: 'MoniTrack');
@@ -37,8 +35,48 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Réinitialise le profil local (déconnexion) : supprime les données
+  /// personnelles du stockage local et revient au profil par défaut.
+  Future<void> reset() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_profile');
+    _profile = UserProfile(firstName: 'Utilisateur', lastName: 'MoniTrack');
+    notifyListeners();
+  }
+
   Future<void> updateUserType(String newType) async {
     await updateProfile(_profile.copyWith(type: newType));
+  }
+
+  /// Change profile type permanently. This can only be done once.
+  Future<bool> changeProfileType(String newType) async {
+    if (_profile.hasChangedType) {
+      return false; // Action already consumed
+    }
+
+    // Determine backend mapped type name if needed, or stick to 'professionnel'/'particulier'
+    final updatedProfile = _profile.copyWith(
+      type: newType,
+      hasChangedType: true,
+    );
+
+    await updateProfile(updatedProfile);
+
+    // Attempt to notify backend
+    try {
+      final authService = AuthService();
+      if (await authService.hasToken()) {
+        // Here we could call a specific endpoint, but pushing sync is a good fallback
+        // if user_profile is handled during sync or we just keep it local for now.
+        // The instructions suggest pushing sync.
+        await SyncService().push();
+        debugPrint('[ProfileProvider] Profile type change synced.');
+      }
+    } catch (e) {
+      debugPrint('[ProfileProvider] Backend sync failed for profile type change: $e');
+    }
+
+    return true;
   }
 
   /// Resolves the currency code for a given country name using [CountriesData].
@@ -77,43 +115,35 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // --- 1. Compute conversion rate ---
-      double conversionRate = 1.0;
+      // --- 1. Marquer la devise historique des lignes qui n'en ont pas ---
+      //
+      // Auparavant, un changement de pays multipliait tous les montants par un
+      // taux de change : l'historique était réécrit, et une dépense de
+      // 10 000 XOF réellement payée devenait « 15,24 EUR » en base. Depuis le
+      // palier 19, chaque ligne porte sa devise de saisie.
+      //
+      // Les lignes antérieures ont `currency IS NULL`, ce qui signifie « à
+      // interpréter dans la devise du profil ». Au moment précis où le profil
+      // change de devise, cette convention allait rendre ces lignes fausses :
+      // on fige donc leur devise à l'ancienne — c'est exactement ce qu'elles
+      // valaient jusqu'ici, aucune donnée n'est inventée. Les montants, eux,
+      // ne bougent plus.
+      final db = await DatabaseService.instance.database;
+      final nowStr = DateTime.now().toIso8601String();
+      var lignesMarquees = 0;
+
       if (oldCurrency != newCurrency) {
-        final exchangeRates = await ExchangeRateService().getRates();
-        debugPrint('[CurrencyConversion] Cached exchange rates available: ${exchangeRates.length} entries');
-        conversionRate = CurrencyConverter.getRate(
-          from: oldCurrency,
-          to: newCurrency,
-          activeRates: exchangeRates,
-        );
-        debugPrint('[CurrencyConversion] Conversion rate ($oldCurrency → $newCurrency): $conversionRate');
-      }
-
-      // --- 2. Convert local SQLite data ---
-      if (conversionRate != 1.0) {
-        final db = await DatabaseService.instance.database;
-        final nowStr = DateTime.now().toIso8601String();
-
         await db.transaction((txn) async {
-          // Convert account balances
-          final accountsUpdated = await txn.rawUpdate(
-            'UPDATE accounts SET balance = balance * ?, is_synced = 0, updated_at = ?',
-            [conversionRate, nowStr],
-          );
-          debugPrint('[CurrencyConversion] Accounts updated: $accountsUpdated rows');
-
-          // Convert expense amounts and installment amounts
-          final expensesUpdated = await txn.rawUpdate(
-            'UPDATE expenses SET amount = amount * ?, '
-            'installmentAmount = CASE WHEN installmentAmount IS NOT NULL THEN installmentAmount * ? ELSE NULL END, '
-            'is_synced = 0, updated_at = ?',
-            [conversionRate, conversionRate, nowStr],
-          );
-          debugPrint('[CurrencyConversion] Expenses updated: $expensesUpdated rows');
+          for (final table in const ['accounts', 'expenses']) {
+            lignesMarquees += await txn.rawUpdate(
+              'UPDATE $table SET currency = ?, is_synced = 0, updated_at = ? '
+              'WHERE currency IS NULL',
+              [oldCurrency, nowStr],
+            );
+          }
         });
-      } else {
-        debugPrint('[CurrencyConversion] Rate is 1.0 — skipping database conversion.');
+        debugPrint(
+            '[CurrencyConversion] Devise historique figée sur $lignesMarquees ligne(s) : $oldCurrency');
       }
 
       // --- 3. Update profile locally ---
@@ -145,8 +175,8 @@ class ProfileProvider with ChangeNotifier {
         debugPrint('[CurrencyConversion] Backend country update failed: $e');
       }
 
-      // --- 5. Push converted data to backend (best-effort) ---
-      if (conversionRate != 1.0) {
+      // --- 5. Envoi au serveur (best-effort) ---
+      if (lignesMarquees > 0) {
         try {
           await SyncService().push();
           debugPrint('[CurrencyConversion] Sync push completed.');

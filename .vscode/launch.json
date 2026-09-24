@@ -1,0 +1,50 @@
+{
+  // Profils de lancement : l'environnement par défaut vient des --dart-define
+  // (cf. lib/config/environment_store.dart). Le basculeur du profil reste
+  // disponible en debug pour changer à chaud.
+  // Compte de test local : définir la variable d'environnement
+  // FIMUS_TEST_PASSWORD avant d'ouvrir VS Code.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Fimus · Production",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Fimus · Local (fimus.local)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FIMUS_ENV=local",
+        "--dart-define=FIMUS_DEV_HOST=vhost",
+        "--dart-define=FIMUS_TEST_PASSWORD=${env:FIMUS_TEST_PASSWORD}"
+      ]
+    },
+    {
+      "name": "Fimus · Local (émulateur Android)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FIMUS_ENV=local",
+        "--dart-define=FIMUS_DEV_HOST=emulator",
+        "--dart-define=FIMUS_TEST_PASSWORD=${env:FIMUS_TEST_PASSWORD}"
+      ]
+    },
+    {
+      "name": "Fimus · Local (web)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "args": [
+        "--dart-define=FIMUS_ENV=local",
+        "--dart-define=FIMUS_DEV_HOST=web",
+        "--dart-define=FIMUS_TEST_PASSWORD=${env:FIMUS_TEST_PASSWORD}"
+      ]
+    }
+  ]
+}

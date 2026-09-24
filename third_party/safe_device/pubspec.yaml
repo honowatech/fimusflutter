@@ -1,0 +1,25 @@
+name: safe_device
+description: This package helps to detect iOS Simulator, Android Emulator and Debug Mode. This package also detects MockLocation/Fake GPS location on Android Device. Also check device is real or not.
+version: 1.4.1
+homepage: https://github.com/ufukhawk/safe_device
+
+environment:
+  sdk: ">=2.18.0 <4.0.0"
+  flutter: ">=3.3.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.xamdesign.safe_device
+        pluginClass: SafeDevicePlugin
+      ios:
+        pluginClass: SafeDevicePlugin

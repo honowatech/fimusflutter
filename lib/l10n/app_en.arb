@@ -31,28 +31,36 @@
   "deleteOperatorConfirm": "Are you sure you want to delete the operator {name}? All associated USSD operations will also be deleted.",
   "@deleteOperatorConfirm": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "deleteOperation": "Delete operation",
   "deleteOperationConfirm": "Are you sure you want to delete the operation {name}?",
   "@deleteOperationConfirm": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "delete": "Delete",
   "myNumber": "My number: {number}",
   "@myNumber": {
     "placeholders": {
-      "number": { "type": "String" }
+      "number": {
+        "type": "String"
+      }
     }
   },
   "noNumberDefined": "No number defined",
   "availableVariables": "Available variables: {variables}",
   "@availableVariables": {
     "placeholders": {
-      "variables": { "type": "String" }
+      "variables": {
+        "type": "String"
+      }
     }
   },
   "ussdTemplate": "USSD Code Template",
@@ -74,11 +82,18 @@
   "totalBalance": "Total Balance",
   "noAccountSaved": "No account saved.",
   "today": "Today",
+  "yesterday": "Yesterday",
+  "retry": "Retry",
+  "errorFetchNotifications": "Unable to load notifications. Check your connection.",
+  "errorDeleteNotif": "Error while deleting.",
+  "markAllAsReadTooltip": "Mark all as read",
+  "notifyAnnouncementsPref": "Announcements and campaigns",
+  "notifyAnnouncementsPrefDesc": "Receive information messages sent by FIMUS.",
   "thisWeek": "This week",
   "thisMonth": "This month",
   "all": "All",
   "noOperationPeriod": "No operation for this period.",
-  "addAccount": "Add an account",
+  "addAccount": "Add account",
   "editAccount": "Edit account",
   "accountName": "Account name (e.g., Cash, Bank)",
   "initialBalance": "Initial balance",
@@ -107,32 +122,42 @@
   "amountToTransfer": "Amount to transfer ({currency})",
   "@amountToTransfer": {
     "placeholders": {
-      "currency": { "type": "String" }
+      "currency": {
+        "type": "String"
+      }
     }
   },
   "merchantCode": "Merchant code",
   "limitPerOperation": "Limit: 500,000 {currency} per operation",
   "@limitPerOperation": {
     "placeholders": {
-      "currency": { "type": "String" }
+      "currency": {
+        "type": "String"
+      }
     }
   },
   "feeFlat3333": "54 {currency} flat",
   "@feeFlat3333": {
     "placeholders": {
-      "currency": { "type": "String" }
+      "currency": {
+        "type": "String"
+      }
     }
   },
   "feePercent266666": "1.5% + 4 {currency} (flat rate)",
   "@feePercent266666": {
     "placeholders": {
-      "currency": { "type": "String" }
+      "currency": {
+        "type": "String"
+      }
     }
   },
   "feeFlatMax": "4,004 {currency} flat",
   "@feeFlatMax": {
     "placeholders": {
-      "currency": { "type": "String" }
+      "currency": {
+        "type": "String"
+      }
     }
   },
   "enterAmountToSeeFees": "Enter an amount to see the fees breakdown",
@@ -141,7 +166,9 @@
   "withdrawalFees": "Withdrawal fees ({label})",
   "@withdrawalFees": {
     "placeholders": {
-      "label": { "type": "String" }
+      "label": {
+        "type": "String"
+      }
     }
   },
   "ttaTax": "TTA (0.2% — finance law 2022)",
@@ -150,7 +177,9 @@
   "operatorLabel": "Operator: {name}",
   "@operatorLabel": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "fieldRequired": "This field is required",
@@ -158,7 +187,9 @@
   "regulatoryLimitExceeded": "The regulatory limit is 500,000 {currency} per operation",
   "@regulatoryLimitExceeded": {
     "placeholders": {
-      "currency": { "type": "String" }
+      "currency": {
+        "type": "String"
+      }
     }
   },
   "includeWithdrawalFees": "Include withdrawal fees",
@@ -169,7 +200,9 @@
   "noHistoryForOperator": "No history for {operator}.",
   "@noHistoryForOperator": {
     "placeholders": {
-      "operator": { "type": "String" }
+      "operator": {
+        "type": "String"
+      }
     }
   },
   "sortBy": "Sort by",
@@ -182,13 +215,17 @@
   "historyDate": "Date: {date}",
   "@historyDate": {
     "placeholders": {
-      "date": { "type": "String" }
+      "date": {
+        "type": "String"
+      }
     }
   },
   "historyCode": "Code: {code}",
   "@historyCode": {
     "placeholders": {
-      "code": { "type": "String" }
+      "code": {
+        "type": "String"
+      }
     }
   },
   "profile": "Profile",
@@ -202,7 +239,9 @@
   "placeQrCodeInFrame": "Place QR code in frame",
   "optionalLabel": "Optional",
   "variablesLabel": "Variables (comma-separated, e.g. contact, amount)",
-  "recentOperations": "Recent actions",
+  "recentOperations": "Quick actions",
+  "last7Days": "Last 7 days",
+  "incomeEntries": "Income",
   "incomeCategories": "Income Categories",
   "addIncomeCategory": "Add an income category",
   "debtsAndReceivables": "Debts & Receivables",
@@ -251,32 +290,39 @@
   "addAccountAction": "+ Account",
   "addExpenseAction": "+ Expense",
   "addLendAction": "+ Lend",
-  "myContacts": "My Contacts",
   "noContactSaved": "No contact saved",
   "addContactsExplanation": "Add contacts to share accounts and manage shared debts.",
   "pseudoTag": "Username: {code}",
   "@pseudoTag": {
     "placeholders": {
-      "code": { "type": "String" }
+      "code": {
+        "type": "String"
+      }
     }
   },
   "deleteContact": "Delete contact",
   "deleteContactConfirm": "Are you sure you want to delete {name} from your contacts?",
   "@deleteContactConfirm": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "contactHasActiveDebts": "You have active debts with {contact}",
   "@contactHasActiveDebts": {
     "placeholders": {
-      "contact": { "type": "String" }
+      "contact": {
+        "type": "String"
+      }
     }
   },
-  "createdBy": "by {name}",
+  "createdBy": "By {name}",
   "@createdBy": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "contactDeleted": "Contact deleted",
@@ -284,13 +330,17 @@
   "shareAccount": "Share \"{name}\"",
   "@shareAccount": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "accountMembers": "Members of \"{name}\"",
   "@accountMembers": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "currentMembers": "Current members:",
@@ -301,7 +351,9 @@
   "accountSharedSuccess": "Account shared with {name}!",
   "@accountSharedSuccess": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "shareImpossible": "Sharing impossible. Check your internet connection.",
@@ -319,22 +371,22 @@
   "sharedByBadge": "Shared by {name}",
   "@sharedByBadge": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "noOperationOnAccount": "No operations on this account",
-  "createdBy": "By {name}",
-  "@createdBy": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
-  },
   "newContact": "New contact",
   "installmentTitle": "Installment {current}/{total}",
   "@installmentTitle": {
     "placeholders": {
-      "current": { "type": "String" },
-      "total": { "type": "String" }
+      "current": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "debtRepayment": "Debt repayment",
@@ -373,7 +425,9 @@
   "createdByName": "Created by {name}",
   "@createdByName": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "borrowAction": "Borrowing",
@@ -405,6 +459,7 @@
   "password": "Password",
   "continueWithGoogle": "Continue with Google",
   "noNotifications": "No notifications.",
+  "notificationFallback": "New notification",
   "notifications": "Notifications",
   "officialLanguage": "Official language",
   "defaultLanguage": "Default language",
@@ -451,7 +506,7 @@
   "catIncomeFees": "Fees",
   "catIncomeProfits": "Profits",
   "catIncomeDividends": "Dividends",
-  "catIncomeSale": "Sale of goods",
+  "catIncomeSale": "Sale Of Goods",
   "catIncomeDonations": "Donations",
   "catIncomeInheritance": "Inheritance",
   "catIncomeOther": "Other",
@@ -526,5 +581,618 @@
   "deleteUserAccount": "Delete my account",
   "deleteUserAccountConfirm": "Delete account",
   "deleteUserAccountWarning": "Are you sure you want to permanently delete your FIMUS account? This action is irreversible and will delete all your data from the server.",
-  "accountDeletedSuccess": "Your account has been deleted successfully."
+  "accountDeletedSuccess": "Your account has been deleted successfully.",
+  "tabOperations": "Transactions",
+  "tabBreakdown": "Overview & Poles",
+  "spendingByPole": "Spending by pole",
+  "spendingByMember": "Spending by member",
+  "familyContributions": "Contributions",
+  "shareWithContacts": "Share with contacts",
+  "selectContacts": "Select contacts",
+  "noContactsSelected": "No contacts selected",
+  "noContactFound": "No contact found",
+  "linkedContacts": "Linked contacts",
+  "accountSharedSuccessMultiple": "Account shared successfully!",
+  "filterAll": "All poles",
+  "periodMonth": "This month",
+  "periodLastMonth": "Last month",
+  "period30Days": "Last 30 days",
+  "periodYear": "This year",
+  "periodCustom": "Custom",
+  "totalExpenses": "Total expenses",
+  "totalIncomes": "Total incomes",
+  "netBalance": "Net balance",
+  "noExpenseInPeriod": "No expenses in this period",
+  "addContactsToShare": "Add contacts",
+  "selectedContactsCount": "{count} contact(s) selected",
+  "@selectedContactsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "profileTypeSection": "Usage Profile",
+  "currentProfileType": "Current profile type",
+  "switchToProfessional": "Switch to Professional profile",
+  "switchToPersonal": "Switch to Personal profile",
+  "profileTypePermanent": "Permanent profile",
+  "profileTypeAlreadyChanged": "You have already changed your profile. This choice is now irreversible.",
+  "profileTypeOneTimeHint": "One-time change allowed",
+  "profileChangeTitle": "Change profile?",
+  "profileChangeToProfessionalDesc": "By switching to the Professional profile, you will gain access to Merchant / Agent USSD codes, cash register tools and commercial transactions.",
+  "profileChangeToPersonalDesc": "By switching to the Personal profile, your interface will be simplified and focused on your personal finances and expenses.",
+  "profileChangeWarning": "Warning: this action is permanent. You will not be able to revert to your previous profile after confirmation.",
+  "confirmProfileChange": "Confirm change",
+  "profileChangeSuccess": "Profile changed successfully",
+  "profileChangeError": "Error changing profile",
+  "announcements": "Announcements",
+  "enableNotificationsPrompt": "Enable notifications to stay updated.",
+  "batteryOptimizationPrompt": "To receive reminders on time, allow FIMUS to ignore battery optimization.",
+  "onboardingNotificationsDenied": "Notifications not allowed. You can enable them later in settings.",
+  "notifyDebtsPref": "Debts and repayments",
+  "notifyDebtsPrefDesc": "Alerts when a shared debt is created, updated, or declined.",
+  "notifyContactsPref": "Contacts",
+  "notifyContactsPrefDesc": "Alerts when someone adds you to their contacts.",
+  "notifyJointAccountsPref": "Joint accounts",
+  "notifyJointAccountsPrefDesc": "Alerts when you are invited to a shared account.",
+  "confirmAndRegister": "CONFIRM AND REGISTER",
+  "suggestionsLabel": "Suggestions:",
+  "unnamedContact": "A contact",
+  "debtDueNotifTitleDebt": "⏰ Due date reminder: Debt",
+  "debtDueNotifTitleReceivable": "⏰ Due date reminder: Receivable",
+  "debtDueNotifBodyDebt": "Your debt of {amount} {currency} to {name} is due today.",
+  "@debtDueNotifBodyDebt": {
+    "placeholders": {
+      "amount": {"type": "String"},
+      "currency": {"type": "String"},
+      "name": {"type": "String"}
+    }
+  },
+  "debtDueNotifBodyReceivable": "The repayment of {amount} {currency} by {name} is due today.",
+  "@debtDueNotifBodyReceivable": {
+    "placeholders": {
+      "amount": {"type": "String"},
+      "currency": {"type": "String"},
+      "name": {"type": "String"}
+    }
+  },
+  "scheduledExpenseNotifTitle": "⏰ Scheduled expense",
+  "scheduledExpenseNotifBody": "\"{title}\" · {amount} {currency} — due at {time}. Tap to confirm, edit, or cancel.",
+  "@scheduledExpenseNotifBody": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "amount": {"type": "String"},
+      "currency": {"type": "String"},
+      "time": {"type": "String"}
+    }
+  },
+  "scheduledConfirmAction": "Confirm",
+  "scheduledCancelAction": "Cancel",
+  "scheduledExpense": "Scheduled expense",
+  "scheduledLabel": "Scheduled",
+  "addScheduledExpense": "Add scheduled expense",
+  "editScheduledExpense": "Edit scheduled expense",
+  "scheduledExpenses": "Scheduled expenses",
+  "dateAndTime": "Date and time",
+  "confirmExpense": "Confirm expense",
+  "modify": "Modify",
+  "cancelScheduledExpense": "Cancel scheduled expense",
+  "cancelScheduledExpenseTitle": "Cancel this scheduled expense?",
+  "cancelScheduledExpenseBody": "The scheduled expense will be deleted and you will no longer be notified.",
+  "futureDateRequired": "Date and time must be in the future.",
+  "scheduledExpensesEmpty": "No scheduled expenses yet.",
+  "saveSchedule": "Save schedule",
+  "scheduleSaved": "Scheduled expense saved. You will be notified when it is due.",
+  "scheduleUpdated": "Schedule updated.",
+  "scheduledExpenseConfirmed": "Expense confirmed ✅",
+  "scheduledExpenseCancelled": "Scheduled expense cancelled",
+  "confirmNow": "Confirm now",
+  "upcomingScheduledExpenses": "{count} scheduled expense(s)",
+  "@upcomingScheduledExpenses": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "scheduledOn": "Scheduled for: {date}",
+  "@scheduledOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduledTodayAt": "today at {time}",
+  "@scheduledTodayAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduledInDays": "in {days} day(s)",
+  "@scheduledInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "editExpense": "Edit expense",
+  "editIncome": "Edit income",
+  "operationOptions": "Transaction options",
+  "detailsTitle": "Transaction details",
+  "typeLabel": "Type",
+  "operationDate": "Transaction date",
+  "recordedDate": "Recorded date",
+  "recordedBy": "Recorded by",
+  "linkedAccount": "Linked account",
+  "noteLabel": "Note",
+  "noNote": "No note",
+  "me": "Me",
+  "status": "Status",
+  "dueDateLabel": "Due date",
+  "debtTagLabel": "Related person",
+  "debtStatusPending": "Pending",
+  "debtStatusAccepted": "Accepted",
+  "sharedAccountOperationBy": "Operation recorded on this shared account by {name}",
+  "@sharedAccountOperationBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myAccount": "My Account",
+  "user": "User",
+  "myPseudo": "My Pseudo",
+  "notDefined": "Not defined",
+  "pseudoCopied": "Pseudo copied!",
+  "syncComplete": "Sync complete — {pushed} pushed, {pulled} pulled",
+  "@syncComplete": {
+    "placeholders": {
+      "pushed": {
+        "type": "int"
+      },
+      "pulled": {
+        "type": "int"
+      }
+    }
+  },
+  "syncError": "Error: {message}",
+  "@syncError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "logoutTitle": "Log out",
+  "logoutConfirmBody": "Are you sure you want to log out? Your local data will be preserved.",
+  "loginToSync": "Log in to sync your data to the cloud.",
+  "accessSecurity": "Access Security",
+  "fingerprintFaceId": "Fingerprint / Face ID",
+  "enter4Digits": "Enter 4 digits",
+  "pinCodesDoNotMatch": "PIN codes do not match",
+  "pinRequired": "PIN code required",
+  "environmentDevMode": "Environment & Dev Mode",
+  "devModeLocalDb": "Developer Mode (Local DB)",
+  "productionMode": "Production Mode (PlayStore)",
+  "connectedToLocalDb": "Connected to local database: {url}",
+  "@connectedToLocalDb": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "connectedToOnlineServer": "Connected to the secure online server (PlayStore)",
+  "enableDevModeTitle": "Enable Dev Mode?",
+  "enableDevModeBody": "In Dev Mode, the app connects to your local database (local Laravel) and isolates data in monitrack_dev.db.\n\nYou can switch back to Production Mode at any time before PlayStore publication.",
+  "enableDevModeBtn": "Enable Dev Mode",
+  "localDbInfo": "Local database active: {db}\nAPI URL: {url}",
+  "@localDbInfo": {
+    "placeholders": {
+      "db": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "localEnvType": "Local environment type:",
+  "hostVhost": "Host fimus.local (Recommended)",
+  "hostEmulator": "Android Emulator (10.0.2.2)",
+  "hostWeb": "Localhost / Web",
+  "hostCustom": "Custom IP / URL",
+  "localApiUrlLabel": "Local API URL (Laravel Server)",
+  "localApiUrlHint": "http://fimus.local/api or http://192.168.1.50:8000/api",
+  "localApiUrlHelper": "Enter your local server address (e.g. http://fimus.local/api or WiFi IP).",
+  "testConnection": "Test connection",
+  "devHostApply": "Apply",
+  "resetToLaunchProfile": "Back to launch profile",
+  "connectionTestOk": "Connection successful ({ms} ms)",
+  "@connectionTestOk": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "connectionTestHttpStatus": "Server responded with code {code}",
+  "@connectionTestHttpStatus": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "connectionTestTimeout": "Timed out (> 4 s). Check the URL or the server.",
+  "connectionTestRefused": "Connection refused. Is the local server running?",
+  "connectionTestError": "Error: {error}",
+  "@connectionTestError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "purgeTestDbTitle": "Purge the local test database?",
+  "purgeTestDbBody": "This action deletes the test data from monitrack_dev.db. Your production database will not be affected.",
+  "purge": "Purge",
+  "purgeTests": "Purge tests",
+  "backToProduction": "Back to Production",
+  "allCategoriesSelected": "Categories",
+  "categoriesSelectedCount": "{count} categories",
+  "@categoriesSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterByCategory": "Filter by category",
+  "accountsDesc": "Accounts signed in on this device",
+  "accountsCount": "{count} accounts signed in",
+  "@accountsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addAccountSubtitle": "Sign in to another MoniTrack account on this device",
+  "activeAccount": "Active",
+  "deviceAccountLimit": "You can connect up to {max} accounts on this device. Sign out of one to add another.",
+  "@deviceAccountLimit": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "createCategory": "Create « {name} »",
+  "@createCategory": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationSettingsTitle": "Notifications",
+  "notificationSettingsSubtitle": "Permissions, categories and quiet hours",
+  "notificationPermissionSection": "System permission",
+  "notificationPermissionGranted": "Notifications allowed",
+  "notificationPermissionGrantedDesc": "FIMUS can alert you in real time.",
+  "notificationPermissionDenied": "Notifications blocked",
+  "notificationPermissionDeniedDesc": "Without permission, due-date reminders and shared debt alerts will not be displayed.",
+  "notificationPermissionUnknown": "Permission not checked",
+  "notificationPermissionUnknownDesc": "Check the permission status to receive alerts.",
+  "notificationPermissionCheck": "Check",
+  "notificationPermissionOpenSettings": "Open settings",
+  "notificationPermissionSettingsHint": "The system will not ask again. Enable notifications from the app settings.",
+  "notificationPermissionRationaleTitle": "Enable notifications?",
+  "notificationPermissionRationaleBody": "FIMUS notifies you when a debt is due, when someone adds you to a shared account and before a scheduled expense. No promotional notification is sent without your consent.",
+  "notificationPermissionRationaleConfirm": "Allow",
+  "notificationPermissionRationaleDismiss": "Later",
+  "notificationCategoriesSection": "Categories",
+  "notifyScheduledExpensesPref": "Scheduled expenses",
+  "notifyScheduledExpensesPrefDesc": "Reminders before a recurring expense is charged.",
+  "reminderScheduleSection": "Reminders",
+  "reminderHourTitle": "Reminder time",
+  "reminderHourDesc": "Time at which due-date reminders are sent.",
+  "quietHoursTitle": "Quiet hours",
+  "quietHoursDesc": "Pause notifications during a time range.",
+  "quietHoursStartLabel": "Start",
+  "quietHoursEndLabel": "End",
+  "quietHoursOvernightHint": "The range continues past midnight.",
+  "exactAlarmsTitle": "Exact alarms",
+  "exactAlarmsDesc": "Required to fire reminders at the exact time. Without them, Android may delay them by several hours.",
+  "exactAlarmsGranted": "Allowed",
+  "exactAlarmsMissing": "Not allowed",
+  "exactAlarmsAllow": "Allow",
+  "notificationPreferencesLoadError": "Could not load your notification preferences.",
+  "notificationPreferencesSaveError": "Could not save the change. It has been reverted.",
+  "notificationPreferencesOfflineHint": "Values stored on this device, shown offline.",
+  "offlineBanner": "Offline · local data",
+  "offlineBannerWithDate": "Offline · data from {date}",
+  "@offlineBannerWithDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "notifChannelDebtsName": "Debts and repayments",
+  "notifChannelDebtsDesc": "Shared debts, repayments and due date reminders.",
+  "notifChannelScheduledExpensesName": "Scheduled expenses",
+  "notifChannelScheduledExpensesDesc": "Reminders for the expenses you scheduled.",
+  "notifChannelContactsName": "Contacts",
+  "notifChannelContactsDesc": "Alerts when someone adds you to their contacts.",
+  "notifChannelJointAccountsName": "Joint accounts",
+  "notifChannelJointAccountsDesc": "Invitations and activity on shared accounts.",
+  "notifChannelGeneralName": "General",
+  "notifChannelGeneralDesc": "FIMUS service notifications.",
+  "notifChannelAnnouncementsName": "Announcements",
+  "notifChannelAnnouncementsDesc": "FIMUS news, tips and offers. Silent.",
+  "loadMore": "Load more",
+  "notificationFilterContacts": "Contacts",
+  "notificationFilterScheduled": "Scheduled",
+  "notificationSectionEarlier": "Earlier",
+  "notificationUnreadBadge": "Unread",
+  "notificationReadBadge": "Read",
+  "notificationTimeJustNow": "Just now",
+  "notificationTimeMinutesAgo": "{count, plural, one{{count} min ago} other{{count} min ago}}",
+  "@notificationTimeMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationTimeHoursAgo": "{count, plural, one{{count} h ago} other{{count} h ago}}",
+  "@notificationTimeHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationDeleted": "Notification deleted",
+  "undoAction": "Undo",
+  "clearSelectionTooltip": "Exit selection",
+  "notificationsSelectedCount": "{count, plural, one{{count} selected} other{{count} selected}}",
+  "@notificationsSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationsEmptyForFilter": "No notifications in this category.",
+  "notificationsShowAllFilters": "Show all notifications",
+  "displayMode": "Display mode",
+  "displayModeSubtitle": "Choose how the app looks",
+  "themeModeSystem": "System",
+  "themeModeLight": "Light",
+  "themeModeDark": "Dark",
+  "notifChannelAlertsName": "Finance alerts",
+  "notifChannelAlertsDesc": "Budget reached, low balance, data waiting to be sent",
+  "alertBudgetWarningTitle": "Budget almost reached",
+  "alertBudgetWarningBody": "{category}: {percent}% of the budget used ({spent} / {budget} {currency}) this month.",
+  "alertBudgetReachedTitle": "Budget exceeded",
+  "alertBudgetReachedBody": "{category}: {percent}% of the budget used ({spent} / {budget} {currency}) this month.",
+  "alertLowBalanceTitle": "Low balance",
+  "alertLowBalanceBody": "{account}: {balance} {currency}, below your {threshold} {currency} threshold.",
+  "alertUnsyncedTitle": "Unsynced data",
+  "alertUnsyncedBody": "{count, plural, one{1 entry has been waiting to be sent for {hours} h. Sync to avoid losing it.} other{{count} entries have been waiting to be sent for {hours} h. Sync to avoid losing them.}}",
+  "localAlertsSection": "Custom alerts",
+  "alertsLocalOnlyNotice": "These settings are stored on this device only: they do not follow your account to another phone.",
+  "alertBudgetSwitchTitle": "Budget threshold",
+  "alertBudgetSwitchDesc": "Warn you at 80% and then 100% of a category monthly budget",
+  "alertLowBalanceSwitchTitle": "Low balance",
+  "alertLowBalanceSwitchDesc": "Warn you when an account drops below its threshold",
+  "alertUnsyncedSwitchTitle": "Unsynced data",
+  "alertUnsyncedSwitchDesc": "Warn you when entries have been waiting too long to be sent",
+  "alertBudgetsManageTitle": "Monthly budgets by category",
+  "alertThresholdsManageTitle": "Balance thresholds by account",
+  "alertTrackedNone": "Nothing tracked yet",
+  "alertBudgetsCount": "{count, plural, one{1 category tracked} other{{count} categories tracked}}",
+  "alertThresholdsCount": "{count, plural, one{1 account tracked} other{{count} accounts tracked}}",
+  "alertUnsyncedDelayTitle": "Delay before alerting",
+  "alertUnsyncedDelayValue": "{days, plural, one{1 day} other{{days} days}}",
+  "alertBudgetsDialogTitle": "Monthly budgets",
+  "alertThresholdsDialogTitle": "Low balance thresholds",
+  "alertBudgetFieldLabel": "Monthly budget",
+  "alertThresholdFieldLabel": "Alert threshold",
+  "alertValueNotSet": "Not set",
+  "alertNoCategories": "No expense category available.",
+  "alertNoAccounts": "No account available.",
+  "alertInvalidAmount": "Enter a valid amount.",
+  "alertResetStateTitle": "Reset alerts already sent",
+  "alertResetStateDesc": "Allow alerts you already received this month to fire again",
+  "alertResetStateDone": "Alerts reset",
+  "savingInProgress": "Saving...",
+  "savedLocallyWillSync": "The entry was saved on your phone. It will sync as soon as your internet connection is back.",
+  "genericErrorRetry": "Something went wrong. Please try again.",
+  "debtOpCollectRepaymentTitle": "Receive a repayment",
+  "debtOpRepayDebtTitle": "Repay a debt",
+  "debtOpNewBorrowTitle": "New borrowing (Debt)",
+  "debtOpNewLoanTitle": "New loan (Receivable)",
+  "debtOpCollectFromHint": "Receive a repayment from {name}",
+  "debtOpRepayToHint": "Repay the debt owed to {name}",
+  "debtOpSettledSuffix": "(Settled)",
+  "debtOpTotalToRepay": "Total to repay: {amount} {currency}",
+  "receivableInterestSimulator": "Receivable with interest (Simulator)",
+  "debtOpNoCashFlowImpact": "This entry is for reference only: it affects neither your accounts nor your statistics.",
+  "debtOpNoLinkableAccount": "No account available to link to.",
+  "pleaseChooseAccount": "Please choose an account",
+  "debtOpSetDueDate": "Set a due date",
+  "debtOpSetDueDateDesc": "Recommended repayment deadline",
+  "debtOpDueDatePlanned": "Planned due date",
+  "selectDate": "Select a date",
+  "frequencyMonthly": "Monthly",
+  "frequencyWeekly": "Weekly",
+  "frequencyDaily": "Daily",
+  "frequencyAnnual": "Yearly",
+  "debtBadgeSettled": "Settled",
+  "debtBadgeToRepay": "Debt to repay",
+  "debtBadgeToCollect": "Receivable to collect",
+  "filterLabel": "Filter:",
+  "validate": "Confirm",
+  "debtKind": "Debt",
+  "receivableKind": "Receivable",
+  "createdByMe": "Me",
+  "createdByMember": "Member",
+  "debtNewOperationTitle": "New debt entry",
+  "debtSelectTitle": "Select a debt",
+  "someone": "Someone",
+  "debtPendingInvitation": "{name} has linked you to a debt: {title}",
+  "debtDueDateOverdue": "Overdue since {date}",
+  "debtDueDatePlanned": "Due on {date}",
+  "debtDueDateValue": "Due: {date}",
+  "selectPeriod": "Select a period",
+  "selectPeriodMax6Months": "Select a period (max 6 months)",
+  "operationsCount": "{count, plural, one{{count} entry} other{{count} entries}}",
+  "exampleLabel": "Example:",
+  "ussdQuickInsertChips": "Quick insert chips:",
+  "ussdPreviewTitle": "Preview of the run screen",
+  "ussdPreviewEmptyHint": "Enter a USSD code containing variables such as {first} or {second} to generate the preview.",
+  "ussdAmountToTransferLabel": "Amount to transfer",
+  "productPhotoTitle": "Product photo",
+  "takePhoto": "Take a photo",
+  "chooseFromGallery": "Choose from gallery",
+  "deletePhoto": "Remove photo",
+  "addPhoto": "Add photo",
+  "productUpdated": "Product updated",
+  "productSaved": "Product saved successfully",
+  "editProductTitle": "Edit product",
+  "newProductTitle": "New product",
+  "productNameLabel": "Product name *",
+  "productNameHint": "E.g. 25 kg rice bag, Phone…",
+  "productNameRequired": "Please enter the product name",
+  "productPriceLabel": "Selling price ({currency}) *",
+  "productPriceRequired": "Please enter the price",
+  "productPriceInvalid": "Invalid price",
+  "productDescriptionLabel": "Description (optional)",
+  "productDescriptionHint": "Details, size, colour, packaging…",
+  "updateAction": "UPDATE",
+  "saveProductAction": "SAVE PRODUCT",
+  "staffUpdated": "Team member updated",
+  "staffAdded": "Team member added successfully",
+  "editStaffTitle": "Edit team member",
+  "newStaffTitle": "New team member",
+  "staffNameLabel": "First & last name *",
+  "staffNameHint": "E.g. Amadou Diallo",
+  "staffNameRequired": "Please enter the name",
+  "staffRoleLabel": "Role / Position",
+  "staffRoleHint": "E.g. Accountant, Sales rep, Technician…",
+  "phoneNumberLabel": "Phone number",
+  "staffPhoneHint": "E.g. +221 77 123 45 67",
+  "emailAddressLabel": "Email address",
+  "staffEmailHint": "E.g. amadou@company.com",
+  "staffSalaryLabel": "Monthly pay ({currency})",
+  "addStaffAction": "ADD TEAM MEMBER",
+  "deleteProductTitle": "Delete this product?",
+  "deleteProductConfirm": "Do you really want to delete \"{name}\"?",
+  "productDeleted": "Product \"{name}\" deleted",
+  "searchProductHint": "Search for a product…",
+  "productsCount": "{count, plural, one{{count} product} other{{count} products}}",
+  "noProductFound": "No product found",
+  "emptyCatalog": "Your catalogue is empty",
+  "trySearchAgain": "Try another search.",
+  "emptyCatalogHint": "Save your items to handle sales quickly.",
+  "addFirstProduct": "Add my first product",
+  "deleteStaffTitle": "Remove this team member?",
+  "deleteStaffConfirm": "Do you really want to remove \"{name}\" from your team?",
+  "staffDeleted": "Team member \"{name}\" removed",
+  "searchStaffHint": "Search for a team member…",
+  "staffCount": "{count, plural, one{{count} team member} other{{count} team members}}",
+  "noStaffFound": "No team member found",
+  "noStaffRecorded": "No team member yet",
+  "emptyStaffHint": "Organise your team, their roles and work contacts.",
+  "addStaffMember": "Add a team member",
+  "googleSignInInterrupted": "Sign-in was interrupted, please try again.",
+  "googleSignInNoAccount": "No Google account found. Add one or use email and password.",
+  "googleSignInUnavailable": "Configuration unavailable. Please try again later.",
+  "googleSignInUpdatePlayServices": "Please update Google Play Services.",
+  "googleSignInAccountChanged": "Account change detected, please try again.",
+  "googleSignInGenericError": "Google sign-in failed. Please try again.",
+  "forgotPasswordSent": "A new password has been sent to your email address. Check your spam folder if it is not in your inbox.",
+  "loginSubtitle": "Sign in to manage your finances",
+  "loginAction": "SIGN IN",
+  "orSeparator": "OR",
+  "noAccountQuestion": "Don't have an account? ",
+  "haveAccountQuestion": "Already have an account? ",
+  "registerAccountAction": "CREATE MY ACCOUNT",
+  "registerSubtitle": "Create your account in seconds",
+  "registerSuccessEmailSent": "Account created! Your password has been emailed to you so you won't forget it.",
+  "startAction": "GET STARTED",
+  "back": "Back",
+  "onboardingStepProgress": "Step {current} of {total}",
+  "onboardingCountryHint": "FIMUS adapts your operators and USSD codes to your location.",
+  "onboardingProfileTypeHint": "Pick how you will use the app so we can tailor the interface.",
+  "profileTypePersonal": "Personal",
+  "profileTypeSmallBusiness": "Small shop",
+  "profileTypeSmallBusinessShort": "Shop",
+  "profileTypeSmallBusinessDesc": "Sales & Products",
+  "profileTypeCompany": "Company",
+  "profileTypeCompanyDesc": "Services & Team",
+  "profileTypeKiosk": "Kiosk",
+  "profileTypeKioskDesc": "Money transfer",
+  "lockTooManyAttemptsReauth": "Too many attempts. Sign in again with your password.",
+  "lockTooManyAttemptsRetryIn": "Too many attempts. Try again in {delay}.",
+  "verifying": "Checking…",
+  "lockIncorrectPinAttemptsLeft": "{count, plural, one{Wrong PIN · {count} attempt before lockout} other{Wrong PIN · {count} attempts before lockout}}",
+  "enterYourPin": "Enter your PIN",
+  "securityTitle": "Security",
+  "lockFullReauthBody": "Too many wrong PINs were entered. For your security, sign in again with your password. Your local data is kept.",
+  "reconnectAction": "Sign in again",
+  "lockForgotPinBody": "For security reasons, if you have forgotten your PIN you must sign out and sign in again. Your synced local data will be kept.",
+  "ussdLoadingCodes": "Loading USSD codes…",
+  "ussdNoOperatorAvailable": "No operator available",
+  "ussdSelectCountryOrAddOperator": "Select a country or add an operator",
+  "ussdAddOperatorSubtitle": "Set up a new mobile operator for your USSD codes",
+  "ussdHiddenBadge": "Hidden",
+  "ussdHideOperation": "Hide this operation",
+  "ussdShowOperation": "Show this operation",
+  "navProducts": "Products",
+  "navStaff": "Team",
+  "changeProfileAction": "Change profile",
+  "profileTypeChooseNew": "Choose a new profile",
+  "profileTypeChangeWarningOnce": "Warning: this change can only be made once and is final.",
+  "profileChangeToSmallBusinessDesc": "Switching to the Small shop profile gives you the product catalogue to record and track the items you sell.",
+  "profileChangeToCompanyDesc": "Switching to the Company profile gives you the Staff module to manage your team members, roles and work contacts.",
+  "profileChangeToKioskDesc": "Switching to the Kiosk profile gives you Merchant/Agent USSD codes and Mobile Money cash-handling tools.",
+  "announcementFallback1": "Set up your favourite USSD codes to run your transactions in a single tap!",
+  "announcementFallback2": "You can now add or remove your own USSD operators with ease.",
+  "announcementFallback3": "Budget tracking: follow your daily spending and stay in control thanks to our detailed reports.",
+  "notifyWeeklyDigestPref": "Weekly digest",
+  "notifyWeeklyDigestPrefDesc": "A summary of your spending for the week, sent every Sunday.",
+  "newLoginConfirmTitle": "Wasn't this you?",
+  "newLoginConfirmBody": "All other sessions on your account will be signed out. This device will stay signed in.",
+  "newLoginConfirmBodyWithDetails": "Login detected: {details}.\n\nAll other sessions on your account will be signed out. This device will stay signed in.",
+  "@newLoginConfirmBodyWithDetails": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "newLoginConfirmAction": "This wasn't me",
+  "revokeOtherSessionsDone": "{sessions} session(s) and {devices} device(s) signed out. Change your password if you don't recognize this login.",
+  "@revokeOtherSessionsDone": {
+    "placeholders": {
+      "sessions": {
+        "type": "int"
+      },
+      "devices": {
+        "type": "int"
+      }
+    }
+  },
+  "revokeOtherSessionsError": "Revocation failed. Check your connection, then try again from the security settings."
 }

@@ -1,0 +1,50 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.2.2' // Uygun Android Gradle Plugin sürümü
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0" // Kotlin plugin ekleniyor
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Vendored copy: Kotlin is compiled by AGP 9 built-in Kotlin
+// (android.builtInKotlin=true), so the Kotlin Gradle Plugin is not applied here.
+apply plugin: 'com.android.library'
+
+android {
+    namespace "com.xamdesign.safe_device"
+    compileSdkVersion 34
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 34
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'com.scottyab:rootbeer-lib:0.1.1'
+    implementation 'com.google.android.gms:play-services-location:21.1.0'
+    implementation 'androidx.annotation:annotation:1.7.1'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
