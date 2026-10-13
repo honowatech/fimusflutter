@@ -4,13 +4,16 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../utils/app_theme.dart';
-import '../../utils/formatters.dart';
+import 'currency_display.dart';
 import 'expense_chart_data.dart';
 
 /// Courbes revenus / dépenses du tableau de bord.
+///
+/// Comme pour l'histogramme, [data] est déjà exprimé en [currency] et
+/// [converted] indique si ces points résultent d'une conversion.
 Widget buildExpenseLineChart(
     List<Map<String, dynamic>> data, bool showIncome, bool showExpense, String currency,
-    ColorScheme colorScheme) {
+    ColorScheme colorScheme, {bool converted = false}) {
   double maxY = 0;
   for (final d in data) {
     if (showIncome) maxY = max(maxY, (d['income'] as double));
@@ -88,7 +91,11 @@ Widget buildExpenseLineChart(
               final isIncome = spot.barIndex == 0 && showIncome;
               final label = isIncome ? '+' : '-';
               return LineTooltipItem(
-                '$label${spot.y.formatAmount()} $currency',
+                formatAggregate(
+                  ConvertedTotal(spot.y, converted: converted),
+                  profileCurrency: currency,
+                  prefix: label,
+                ),
                 TextStyle(
                   color: isIncome ? Colors.greenAccent : Colors.redAccent.shade100,
                   fontWeight: FontWeight.bold,

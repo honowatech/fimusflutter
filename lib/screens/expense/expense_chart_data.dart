@@ -1,8 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../../models/expense.dart';
+import '../../utils/currency_converter.dart';
+
 /// Agrège les opérations par jour sur la plage donnée, puis par semaine
 /// au-delà de 14 points pour garder un graphique lisible.
-List<Map<String, dynamic>> aggregateDailyData(List expenses, DateTimeRange range) {
+///
+/// Chaque montant est **converti dans [profileCurrency] avant d'être cumulé** :
+/// une série qui additionne des devises différentes trace une courbe fausse.
+/// Une devise de ligne inconnue (`null`, antérieure au palier 19) est tenue
+/// pour déjà exprimée dans celle du profil, conformément au contrat de repli.
+List<Map<String, dynamic>> aggregateDailyData(
+  List<Expense> expenses,
+  DateTimeRange range, {
+  required String profileCurrency,
+  required Map<String, double> activeRates,
+}) {
   final Map<String, Map<String, double>> grouped = {};
 
   // Create entries for each day in the range
@@ -17,10 +30,16 @@ List<Map<String, dynamic>> aggregateDailyData(List expenses, DateTimeRange range
     final d = e.date.toLocal();
     final key = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     if (grouped.containsKey(key)) {
+      final amount = CurrencyConverter.convertForDisplay(
+        amount: e.amount,
+        from: e.currency,
+        to: profileCurrency,
+        activeRates: activeRates,
+      );
       if (e.type == 'income') {
-        grouped[key]!['income'] = (grouped[key]!['income'] ?? 0) + e.amount;
+        grouped[key]!['income'] = (grouped[key]!['income'] ?? 0) + amount;
       } else {
-        grouped[key]!['expense'] = (grouped[key]!['expense'] ?? 0) + e.amount;
+        grouped[key]!['expense'] = (grouped[key]!['expense'] ?? 0) + amount;
       }
     }
   }

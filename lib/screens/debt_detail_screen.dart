@@ -12,12 +12,33 @@ import 'add_debt_operation_screen.dart';
 import 'debt_screen.dart';
 import '../utils/app_theme.dart';
 import '../utils/formatters.dart';
-import '../services/database_service.dart';
+import '../services/exchange_rate_service.dart';
 
-class DebtDetailScreen extends StatelessWidget {
+class DebtDetailScreen extends StatefulWidget {
   final String debtTag;
 
   const DebtDetailScreen({super.key, required this.debtTag});
+
+  @override
+  State<DebtDetailScreen> createState() => _DebtDetailScreenState();
+}
+
+class _DebtDetailScreenState extends State<DebtDetailScreen> {
+  /// Taux de change actifs, chargés une seule fois pour l'écran : ni la liste
+  /// des opérations ni l'en-tête ne relisent le cache ligne par ligne.
+  Map<String, double> _rates = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _chargerTaux();
+  }
+
+  Future<void> _chargerTaux() async {
+    final rates = await ExchangeRateService().getRates();
+    if (!mounted) return;
+    setState(() => _rates = rates);
+  }
 
   String _getDisplayNameForTag(String tag, List<Contact> contacts) {
     final match = contacts.firstWhere(
@@ -42,28 +63,39 @@ class DebtDetailScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
-              // Handle account refunds for linked cashflow operations
+              // Suppression du tag **et** remboursement des comptes imputés :
+              // le provider convertit chaque opération dans la devise de son
+              // compte et refuse tout en bloc si un taux manque.
               final accountProvider = Provider.of<AccountProvider>(context, listen: false);
-              final transactions = provider.getTransactionsForDebt(debtTag);
-              
-              await DatabaseService.instance.runTransaction((txn) async {
-                for (var tx in transactions) {
-                  if (tx.isLinkedToCashFlow && tx.accountId != null) {
-                    await accountProvider.updateBalance(
-                      tx.accountId!,
-                      tx.type == 'income' ? -tx.amount : tx.amount,
-                      executor: txn,
-                    );
-                  }
-                }
-                
-                await provider.deleteDebtTag(debtTag, executor: txn);
-              });
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(context);
+              Navigator.pop(ctx);
 
-              if (context.mounted) {
-                Navigator.pop(ctx);
-                Navigator.pop(context);
+              final result = await provider.deleteDebtTagAndAdjustBalances(
+                widget.debtTag,
+                accountProvider: accountProvider,
+              );
+
+              if (!mounted) return;
+              if (!result.isSuccess) {
+                // Rien n'a été écrit : la dette est toujours là, on reste sur
+                // l'écran et on le dit au lieu d'un faux succès silencieux.
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      result.isRateUnavailable
+                          ? l10n.balanceRateUnavailable(
+                              result.missingFrom ?? '?',
+                              result.missingTo ?? '?',
+                            )
+                          : l10n.operationNotFound,
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
               }
+              navigator.pop();
             },
             child: Text(l10n.confirm, style: TextStyle(color: scheme.error)),
           ),
@@ -80,15 +112,34 @@ class DebtDetailScreen extends StatelessWidget {
     final currency = Provider.of<ProfileProvider>(context).profile.currency;
 
     final contacts = Provider.of<ContactProvider>(context).contacts;
-    final displayName = _getDisplayNameForTag(debtTag, contacts);
+    final displayName = _getDisplayNameForTag(widget.debtTag, contacts);
 
-    final balance = provider.getDebtBalance(debtTag);
-    final transactions = provider.getTransactionsForDebt(debtTag);
+    final balance = provider.getDebtBalance(widget.debtTag);
+    final transactions = provider.getTransactionsForDebt(widget.debtTag);
     // Sort transactions chronologically (oldest first or newest first, let's do newest first)
     transactions.sort((a, b) => b.date.compareTo(a.date));
 
     final isDebt = balance < 0;
     final isSettled = balance == 0;
+
+    // Solde d'en-tête : gardé dans la devise des opérations quand elles
+    // s'accordent (une dette contractée en XOF se lit en XOF), ramené à la
+    // devise du profil dès qu'elles en mêlent plusieurs.
+    final solde = SoldeDette.calculer(
+      transactions,
+      profileCurrency: currency,
+      activeRates: _rates,
+    );
+    final equivalentSolde = MoneyFormatter.isForeign(solde.devise, currency)
+        // `montantProfil` est déjà dans la devise du profil : la conversion
+        // est une identité, il ne reste qu'à le libeller.
+        ? '≈ ${MoneyFormatter.formatConverted(
+            solde.montantProfil.abs(),
+            rowCurrency: currency,
+            profileCurrency: currency,
+            activeRates: _rates,
+          )}'
+        : null;
 
     bool isCreator = true;
     if (transactions.isNotEmpty) {
@@ -131,13 +182,28 @@ class DebtDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${balance.abs().formatAmountDouble()} $currency',
+                  MoneyFormatter.format(
+                    solde.montant.abs(),
+                    rowCurrency: solde.devise,
+                    profileCurrency: currency,
+                  ),
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     color: isSettled ? scheme.onSurface : (isDebt ? scheme.expense : scheme.income),
                   ),
                 ),
+                if (equivalentSolde != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    equivalentSolde,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Text(
                   isSettled
@@ -214,7 +280,7 @@ class DebtDetailScreen extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder: (_) => AddDebtOperationScreen(
-                initialTag: debtTag,
+                initialTag: widget.debtTag,
                 initialAmount: balance != 0 ? balance.abs() : null,
                 initialIsIncome: balance != 0 ? balance > 0 : null,
               ),
@@ -340,13 +406,35 @@ class DebtDetailScreen extends StatelessWidget {
               ),
           ],
         ),
-        trailing: Text(
-          '$sign${op.amount.formatAmountDouble()} $currency',
-          style: TextStyle(
-            color: amountColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Opération isolée : dans sa devise de saisie, pas dans celle du
+            // profil.
+            Text(
+              '$sign${MoneyFormatter.format(
+                op.amount,
+                rowCurrency: op.currency,
+                profileCurrency: currency,
+              )}',
+              style: TextStyle(
+                color: amountColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            if (MoneyFormatter.isForeign(op.currency, currency))
+              Text(
+                '≈ ${MoneyFormatter.formatConverted(
+                  op.amount,
+                  rowCurrency: op.currency,
+                  profileCurrency: currency,
+                  activeRates: _rates,
+                )}',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
+          ],
         ),
       ),
     );

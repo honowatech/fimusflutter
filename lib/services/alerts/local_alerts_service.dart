@@ -40,11 +40,16 @@ class AlertRunReport {
 /// Alertes locales de finances personnelles : budget par catégorie, solde bas
 /// par compte, données non synchronisées.
 ///
-/// Rôle : **orchestration uniquement**. Il lit les réglages et l'état
-/// (SharedPreferences), les préférences de notification (heures calmes), la
-/// photographie des données non synchronisées (SQLite, lecture seule), délègue
-/// **toute la décision** à `evaluateAlerts` (fonction pure), puis affiche les
-/// alertes retenues et persiste le nouvel état anti-spam.
+/// Rôle : **orchestration uniquement**. Il lit les préférences de notification
+/// (cache local : heures calmes, et les trois interrupteurs de famille plus le
+/// délai, dont le serveur est la source de vérité), rafraîchit le miroir
+/// `AlertSettings`, lit l'état anti-spam et la photographie des données non
+/// synchronisées (SQLite, lecture seule), délègue **toute la décision** à
+/// `evaluateAlerts` (fonction pure), puis affiche les alertes retenues et
+/// persiste le nouvel état anti-spam.
+///
+/// **Aucun appel réseau** sur ce chemin : tout se lit en SharedPreferences ou
+/// en SQLite, l'évaluation reste donc entière hors ligne.
 ///
 /// Il n'écrit dans aucune table, ne modifie aucun provider métier et ne prend
 /// jamais de `BuildContext`.
@@ -128,7 +133,15 @@ class LocalAlertsService {
     DateTime now,
   ) async {
     try {
-      final settings = await _store.readSettings();
+      // Les préférences de notification sont lues **avant** les réglages : les
+      // trois interrupteurs de famille et le délai en viennent (clés serveur
+      // `notify_budget_threshold`, `notify_low_balance`,
+      // `notify_unsynced_data`, `unsynced_threshold_hours`). La lecture passe
+      // par le cache SharedPreferences — aucun appel réseau sur ce chemin,
+      // l'évaluation reste opérationnelle hors ligne.
+      final preferences = await _loadPreferences();
+      final settings =
+          await _store.mirrorNotificationPreferences(preferences);
       if (!settings.hasAnyAlertEnabled) {
         // Tout est coupé : on ne notifie rien, mais on purge les paliers des
         // mois écoulés, sans quoi la carte d'état ne redescendrait jamais.
@@ -139,7 +152,6 @@ class LocalAlertsService {
       }
 
       final state = await _store.readState();
-      final preferences = await _loadPreferences();
       final currency = await _store.readCurrency();
 
       // La sonde SQLite n'est déclenchée que si l'alerte correspondante est

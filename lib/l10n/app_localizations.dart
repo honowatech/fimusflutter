@@ -3904,12 +3904,6 @@ abstract class AppLocalizations {
   /// **'Alertes personnalisées'**
   String get localAlertsSection;
 
-  /// No description provided for @alertsLocalOnlyNotice.
-  ///
-  /// In fr, this message translates to:
-  /// **'Ces réglages sont enregistrés sur cet appareil uniquement : ils ne suivent pas votre compte sur un autre téléphone.'**
-  String get alertsLocalOnlyNotice;
-
   /// No description provided for @alertBudgetSwitchTitle.
   ///
   /// In fr, this message translates to:
@@ -4059,12 +4053,6 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Enregistrement en cours...'**
   String get savingInProgress;
-
-  /// No description provided for @savedLocallyWillSync.
-  ///
-  /// In fr, this message translates to:
-  /// **'L\'opération a été enregistrée sur votre téléphone. Elle sera synchronisée dès le retour de la connexion internet.'**
-  String get savedLocallyWillSync;
 
   /// No description provided for @genericErrorRetry.
   ///
@@ -5031,6 +5019,234 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'La révocation a échoué. Vérifiez votre connexion, puis réessayez depuis les réglages de sécurité.'**
   String get revokeOtherSessionsError;
+
+  /// No description provided for @passwordResetTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe oublié'**
+  String get passwordResetTitle;
+
+  /// No description provided for @passwordResetStepEmail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse'**
+  String get passwordResetStepEmail;
+
+  /// No description provided for @passwordResetStepCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code'**
+  String get passwordResetStepCode;
+
+  /// No description provided for @passwordResetStepPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe'**
+  String get passwordResetStepPassword;
+
+  /// No description provided for @passwordResetEmailInstruction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Indiquez l\'adresse e-mail de votre compte. Si un compte y est associé, un code à {length} chiffres y sera envoyé.'**
+  String passwordResetEmailInstruction(int length);
+
+  /// No description provided for @passwordResetSendCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Envoyer le code'**
+  String get passwordResetSendCode;
+
+  /// No description provided for @passwordResetCodeSent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Si un compte existe pour cette adresse, un code vient d\'être envoyé. Pensez à regarder vos spams.'**
+  String get passwordResetCodeSent;
+
+  /// No description provided for @passwordResetCodeInstruction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Saisissez le code à {length} chiffres envoyé à {email}.'**
+  String passwordResetCodeInstruction(int length, String email);
+
+  /// No description provided for @passwordResetCodeLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code de vérification'**
+  String get passwordResetCodeLabel;
+
+  /// No description provided for @passwordResetCodeIncomplete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le code comporte {length} chiffres.'**
+  String passwordResetCodeIncomplete(int length);
+
+  /// No description provided for @passwordResetCodeValidFor.
+  ///
+  /// In fr, this message translates to:
+  /// **'Valable encore {time}'**
+  String passwordResetCodeValidFor(String time);
+
+  /// No description provided for @passwordResetCodeExpired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce code n\'est plus valable. Demandez-en un nouveau.'**
+  String get passwordResetCodeExpired;
+
+  /// No description provided for @passwordResetVerifyCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Valider le code'**
+  String get passwordResetVerifyCode;
+
+  /// No description provided for @passwordResetResendCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Renvoyer un code'**
+  String get passwordResetResendCode;
+
+  /// No description provided for @passwordResetResendIn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouvel envoi possible dans {time}'**
+  String passwordResetResendIn(String time);
+
+  /// No description provided for @passwordResetChangeEmail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer d\'adresse'**
+  String get passwordResetChangeEmail;
+
+  /// No description provided for @passwordResetCodeInvalid.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code invalide ou expiré. Vérifiez le code reçu, ou demandez-en un nouveau.'**
+  String get passwordResetCodeInvalid;
+
+  /// No description provided for @passwordResetTooManyAttempts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trop de tentatives. Réessayez dans {time}.'**
+  String passwordResetTooManyAttempts(String time);
+
+  /// No description provided for @passwordResetUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Serveur injoignable. Vérifiez votre connexion, puis réessayez.'**
+  String get passwordResetUnavailable;
+
+  /// No description provided for @passwordResetNewPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouveau mot de passe'**
+  String get passwordResetNewPassword;
+
+  /// No description provided for @passwordResetRules.
+  ///
+  /// In fr, this message translates to:
+  /// **'8 caractères minimum, avec au moins une minuscule, une majuscule et un chiffre.'**
+  String get passwordResetRules;
+
+  /// No description provided for @passwordNeedsMixedCase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoutez au moins une minuscule et une majuscule'**
+  String get passwordNeedsMixedCase;
+
+  /// No description provided for @passwordNeedsDigit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoutez au moins un chiffre'**
+  String get passwordNeedsDigit;
+
+  /// No description provided for @passwordResetPasswordRejected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce mot de passe a été refusé. Choisissez-en un autre, plus long ou plus varié.'**
+  String get passwordResetPasswordRejected;
+
+  /// No description provided for @passwordResetSessionsWarning.
+  ///
+  /// In fr, this message translates to:
+  /// **'Par sécurité, toutes vos sessions seront déconnectées, sur cet appareil comme sur les autres.'**
+  String get passwordResetSessionsWarning;
+
+  /// No description provided for @passwordResetSubmit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistrer le mot de passe'**
+  String get passwordResetSubmit;
+
+  /// No description provided for @passwordResetTokenExpired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le délai est dépassé. Reprenez la demande depuis le début.'**
+  String get passwordResetTokenExpired;
+
+  /// No description provided for @passwordResetSuccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe modifié. Toutes les sessions ont été déconnectées : connectez-vous avec votre nouveau mot de passe.'**
+  String get passwordResetSuccess;
+
+  /// No description provided for @alertsPortableNotice.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ces réglages suivent votre compte : ils sont rétablis sur un nouveau téléphone dès la première synchronisation. Seul l’historique des alertes déjà affichées reste sur cet appareil.'**
+  String get alertsPortableNotice;
+
+  /// No description provided for @alertUnsyncedDelayHours.
+  ///
+  /// In fr, this message translates to:
+  /// **'{hours, plural, one{1 heure} other{{hours} heures}}'**
+  String alertUnsyncedDelayHours(int hours);
+
+  /// No description provided for @balanceRateUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Taux {from} → {to} indisponible. L\'opération n\'a pas été enregistrée : réessayez après une synchronisation.'**
+  String balanceRateUnavailable(String from, String to);
+
+  /// No description provided for @entryCurrencyHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Devise : {code}'**
+  String entryCurrencyHint(String code);
+
+  /// No description provided for @amountInCurrency.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montant saisi en {code}'**
+  String amountInCurrency(String code);
+
+  /// No description provided for @operationNotFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Opération introuvable.'**
+  String get operationNotFound;
+
+  /// No description provided for @forceUpdateTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise à jour requise'**
+  String get forceUpdateTitle;
+
+  /// No description provided for @forceUpdateMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une nouvelle version de FIMUS est disponible. Installez-la pour continuer à utiliser l\'application.'**
+  String get forceUpdateMessage;
+
+  /// No description provided for @forceUpdateButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mettre à jour'**
+  String get forceUpdateButton;
+
+  /// No description provided for @forceUpdateFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'La mise à jour n\'a pas été lancée. Appuyez sur « Mettre à jour » pour réessayer.'**
+  String get forceUpdateFailed;
 }
 
 class _AppLocalizationsDelegate

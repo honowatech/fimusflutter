@@ -5,9 +5,9 @@ import '../providers/expense_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/currency_converter.dart';
 import '../utils/formatters.dart';
 import '../models/expense.dart';
-import '../services/database_service.dart';
 import '../widgets/category_form_field.dart';
 import 'package:uuid/uuid.dart';
 import 'expense_screen.dart';
@@ -55,13 +55,57 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
+  /// Devise dans laquelle l'utilisateur saisit : celle du compte imputé s'il en
+  /// porte une, sinon celle du profil. Même règle que la devise estampillée sur
+  /// l'opération à sa création, pour que l'étiquette affichée corresponde à ce
+  /// qui sera réellement enregistré.
+  ///
+  /// En modification, la devise de l'opération est figée et ne se réécrit
+  /// jamais : c'est elle qu'on annonce, quel que soit le compte choisi.
+  String _entryCurrency(BuildContext context) {
+    final profileCurrency =
+        Provider.of<ProfileProvider>(context).profile.currency;
+    if (_isEditing && widget.expenseToEdit!.currency != null) {
+      return widget.expenseToEdit!.currency!;
+    }
+    final accountCurrency = Provider.of<AccountProvider>(context)
+        .accounts
+        .where((a) => a.id == _selectedAccountId)
+        .firstOrNull
+        ?.currency;
+    return CurrencyConverter.resolveForNewOperation(
+          accountCurrency: accountCurrency,
+          profileCurrency: profileCurrency,
+        ) ??
+        profileCurrency;
+  }
+
+  /// Signale un refus d'écriture sans fermer le formulaire : aucune ligne n'a
+  /// été écrite, la saisie de l'utilisateur doit rester à l'écran pour qu'il
+  /// puisse réessayer après une synchronisation.
+  void _showWriteFailure(BalanceWriteResult result) {
+    final l10n = AppLocalizations.of(context)!;
+    final message = result.isRateUnavailable
+        ? l10n.balanceRateUnavailable(
+            result.missingFrom ?? '?', result.missingTo ?? '?')
+        : l10n.operationNotFound;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      
+
       final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
       final accountProvider = Provider.of<AccountProvider>(context, listen: false);
-      
+
+      final BalanceWriteResult result;
       if (_isEditing) {
         final original = widget.expenseToEdit!;
         final updatedExpense = original.copyWith(
@@ -74,37 +118,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           updatedAt: DateTime.now(),
         );
 
-        await DatabaseService.instance.runTransaction((txn) async {
-          await expenseProvider.updateExpense(updatedExpense, executor: txn);
-
-          final oldAccountId = original.accountId;
-          final oldAmount = original.amount;
-          final oldIsIncome = original.type == 'income';
-
-          final newAccountId = _selectedAccountId;
-          final newAmount = _amount;
-          final newIsIncome = _isIncome;
-
-          if (oldAccountId == newAccountId) {
-            if (oldAccountId != null) {
-              final oldContribution = oldIsIncome ? oldAmount : -oldAmount;
-              final newContribution = newIsIncome ? newAmount : -newAmount;
-              final delta = newContribution - oldContribution;
-              if (delta != 0) {
-                await accountProvider.updateBalance(oldAccountId, delta, executor: txn);
-              }
-            }
-          } else {
-            if (oldAccountId != null) {
-              final revertDelta = oldIsIncome ? -oldAmount : oldAmount;
-              await accountProvider.updateBalance(oldAccountId, revertDelta, executor: txn);
-            }
-            if (newAccountId != null) {
-              final applyDelta = newIsIncome ? newAmount : -newAmount;
-              await accountProvider.updateBalance(newAccountId, applyDelta, executor: txn);
-            }
-          }
-        });
+        // Delta, changement de compte et conversion sont entièrement traités
+        // par le provider, dans une seule transaction.
+        result = await expenseProvider.updateExpenseWithBalance(
+          original: original,
+          updated: updatedExpense,
+          accountProvider: accountProvider,
+        );
       } else {
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
@@ -124,24 +144,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           createdAt: DateTime.now(),
         );
 
-        await DatabaseService.instance.runTransaction((txn) async {
-          await expenseProvider.addExpense(expense, executor: txn);
-          if (_selectedAccountId != null) {
-            await accountProvider.updateBalance(
-              _selectedAccountId!, 
-              _isIncome ? _amount : -_amount,
-              executor: txn,
-            );
-          }
-        });
+        result = await expenseProvider.addExpenseWithBalance(
+          expense,
+          accountProvider: accountProvider,
+        );
       }
-      
-      if (mounted) {
-        Navigator.pop(context);
-        if (!_isEditing) {
-          MainScreen.globalKey.currentState?.setSelectedIndex(1);
-          ExpenseScreen.navigateToTab(1);
-        }
+
+      if (!mounted) return;
+      // Écriture refusée : rien n'a été enregistré, on garde le formulaire
+      // ouvert plutôt que d'annoncer un faux succès.
+      if (!result.isSuccess) {
+        _showWriteFailure(result);
+        return;
+      }
+
+      Navigator.pop(context);
+      if (!_isEditing) {
+        MainScreen.globalKey.currentState?.setSelectedIndex(1);
+        ExpenseScreen.navigateToTab(1);
       }
     }
   }
@@ -167,7 +187,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         ? Provider.of<ExpenseProvider>(context).incomeCategories
         : Provider.of<ExpenseProvider>(context).expenseCategories;
     final accounts = Provider.of<AccountProvider>(context).accounts;
-    final currency = Provider.of<ProfileProvider>(context).profile.currency;
+    // Devise de saisie annoncée à l'utilisateur : elle suit le compte imputé,
+    // pas systématiquement celle du profil.
+    final currency = _entryCurrency(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -194,7 +216,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 initialValue: _amount > 0 ? (_amount % 1 == 0 ? _amount.toInt().toString() : _amount.toString()) : '',
-                decoration: InputDecoration(labelText: l10n.amount, prefixText: '$currency '),
+                decoration: InputDecoration(
+                  labelText: l10n.amount,
+                  prefixText: '$currency ',
+                  // Rappel explicite : sur un compte en devise étrangère, le
+                  // préfixe seul passe inaperçu.
+                  helperText: l10n.entryCurrencyHint(currency),
+                ),
                 keyboardType: TextInputType.number,
                 inputFormatters: [AmountInputFormatter()],
                 validator: (val) {

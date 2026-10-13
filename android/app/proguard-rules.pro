@@ -273,6 +273,12 @@
 -dontwarn com.baseflow.permissionhandler.**
 -dontwarn com.it_nomads.fluttersecurestorage.**
 
+# in_app_update : MethodChannel + API Play Core « app-update » (Google
+# Play lance le flux de mise à jour obligatoire via un ActivityResult).
+-keep class de.ffuf.in_app_update.** { *; }
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
+
 # flutter_secure_storage s'appuie sur le Keystore Android et sur Tink.
 -keep class androidx.security.crypto.** { *; }
 -keep class com.google.crypto.tink.** { *; }

@@ -24,3 +24,7 @@ ios/Runner/GoogleService-Info.plist
 # Symboles de débogage et mapping R8 : produits par chaque build release,
 # à archiver hors du dépôt (voir docs/build-release-android.md §4).
 /symbols/
+
+# Dossier de travail d'outillage (captures d'écran de recette, plans de
+# session, scripts d'inspection) : jetable, jamais une source.
+/.zcode/

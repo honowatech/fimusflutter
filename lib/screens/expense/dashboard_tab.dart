@@ -6,8 +6,8 @@ import '../../providers/account_provider.dart';
 import '../../providers/expense_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../utils/app_theme.dart';
-import '../../utils/formatters.dart';
 import '../scheduled_expenses_screen.dart';
+import 'currency_display.dart';
 import 'expense_chart_section.dart';
 import 'expense_category_filter.dart';
 import 'expense_date_filters.dart';
@@ -44,7 +44,13 @@ class ExpenseDashboardTab extends StatelessWidget {
   final ValueChanged<bool> onChartTypeChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ExchangeRatesBuilder(
+        // Taux chargés une seule fois pour tout l'onglet : les totaux et les
+        // séries du graphique sont des agrégats, ils mêlent les devises.
+        builder: _buildDashboard,
+      );
+
+  Widget _buildDashboard(BuildContext context, Map<String, double> rates) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
     // Cartes « revenus » / « dépenses » : fonds pleins conservés à l'identique
@@ -71,12 +77,19 @@ class ExpenseDashboardTab extends StatelessWidget {
         ? allDashboardExpenses
         : allDashboardExpenses.where((e) => categoryFilter.contains(e.category)).toList();
 
-    final totalExpense = dashboardExpenses
-        .where((e) => e.type == 'expense')
-        .fold(0.0, (sum, item) => sum + item.amount);
-    final totalIncome = dashboardExpenses
-        .where((e) => e.type == 'income')
-        .fold(0.0, (sum, item) => sum + item.amount);
+    // Agrégats : chaque ligne est convertie dans la devise du profil **avant**
+    // la somme. Additionner des montants de devises différentes ne produit pas
+    // un total mal libellé, mais un total faux.
+    final totalExpense = sumConverted(
+      dashboardExpenses.where((e) => e.type == 'expense'),
+      profileCurrency: currency,
+      activeRates: rates,
+    );
+    final totalIncome = sumConverted(
+      dashboardExpenses.where((e) => e.type == 'income'),
+      profileCurrency: currency,
+      activeRates: rates,
+    );
 
     final showIncome = typeFilter == 'all' || typeFilter == 'income';
     final showExpense = typeFilter == 'all' || typeFilter == 'expense';
@@ -124,7 +137,7 @@ class ExpenseDashboardTab extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${totalIncome.formatAmount()} $currency',
+              formatAggregate(totalIncome, profileCurrency: currency),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
@@ -173,7 +186,7 @@ class ExpenseDashboardTab extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${totalExpense.formatAmount()} $currency',
+              formatAggregate(totalExpense, profileCurrency: currency),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
@@ -255,6 +268,7 @@ class ExpenseDashboardTab extends StatelessWidget {
               range: range,
               expenses: dashboardExpenses,
               currency: currency,
+              activeRates: rates,
               showIncome: showIncome,
               showExpense: showExpense,
               isBarChart: isBarChart,

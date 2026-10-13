@@ -2126,10 +2126,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get localAlertsSection => 'Custom alerts';
 
   @override
-  String get alertsLocalOnlyNotice =>
-      'These settings are stored on this device only: they do not follow your account to another phone.';
-
-  @override
   String get alertBudgetSwitchTitle => 'Budget threshold';
 
   @override
@@ -2231,10 +2227,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get savingInProgress => 'Saving...';
-
-  @override
-  String get savedLocallyWillSync =>
-      'The entry was saved on your phone. It will sync as soon as your internet connection is back.';
 
   @override
   String get genericErrorRetry => 'Something went wrong. Please try again.';
@@ -2814,4 +2806,157 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get revokeOtherSessionsError =>
       'Revocation failed. Check your connection, then try again from the security settings.';
+
+  @override
+  String get passwordResetTitle => 'Forgotten password';
+
+  @override
+  String get passwordResetStepEmail => 'Address';
+
+  @override
+  String get passwordResetStepCode => 'Code';
+
+  @override
+  String get passwordResetStepPassword => 'Password';
+
+  @override
+  String passwordResetEmailInstruction(int length) {
+    return 'Enter your account email address. If an account exists for it, a $length-digit code will be sent there.';
+  }
+
+  @override
+  String get passwordResetSendCode => 'Send the code';
+
+  @override
+  String get passwordResetCodeSent =>
+      'If an account exists for this address, a code has just been sent. Remember to check your spam folder.';
+
+  @override
+  String passwordResetCodeInstruction(int length, String email) {
+    return 'Enter the $length-digit code sent to $email.';
+  }
+
+  @override
+  String get passwordResetCodeLabel => 'Verification code';
+
+  @override
+  String passwordResetCodeIncomplete(int length) {
+    return 'The code is $length digits long.';
+  }
+
+  @override
+  String passwordResetCodeValidFor(String time) {
+    return 'Valid for another $time';
+  }
+
+  @override
+  String get passwordResetCodeExpired =>
+      'This code is no longer valid. Request a new one.';
+
+  @override
+  String get passwordResetVerifyCode => 'Verify the code';
+
+  @override
+  String get passwordResetResendCode => 'Send a new code';
+
+  @override
+  String passwordResetResendIn(String time) {
+    return 'You can request another code in $time';
+  }
+
+  @override
+  String get passwordResetChangeEmail => 'Change address';
+
+  @override
+  String get passwordResetCodeInvalid =>
+      'Invalid or expired code. Check the code you received, or request a new one.';
+
+  @override
+  String passwordResetTooManyAttempts(String time) {
+    return 'Too many attempts. Try again in $time.';
+  }
+
+  @override
+  String get passwordResetUnavailable =>
+      'The server cannot be reached. Check your connection, then try again.';
+
+  @override
+  String get passwordResetNewPassword => 'New password';
+
+  @override
+  String get passwordResetRules =>
+      'At least 8 characters, including a lowercase letter, an uppercase letter and a digit.';
+
+  @override
+  String get passwordNeedsMixedCase =>
+      'Add at least one lowercase and one uppercase letter';
+
+  @override
+  String get passwordNeedsDigit => 'Add at least one digit';
+
+  @override
+  String get passwordResetPasswordRejected =>
+      'This password was rejected. Pick another one, longer or more varied.';
+
+  @override
+  String get passwordResetSessionsWarning =>
+      'For security, all your sessions will be signed out, on this device as well as the others.';
+
+  @override
+  String get passwordResetSubmit => 'Save the password';
+
+  @override
+  String get passwordResetTokenExpired =>
+      'The time limit has passed. Start the request again.';
+
+  @override
+  String get passwordResetSuccess =>
+      'Password changed. All sessions have been signed out: sign in with your new password.';
+
+  @override
+  String get alertsPortableNotice =>
+      'These settings follow your account: they are restored on a new phone at the first sync. Only the history of alerts already shown stays on this device.';
+
+  @override
+  String alertUnsyncedDelayHours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: '$hours hours',
+      one: '1 hour',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String balanceRateUnavailable(String from, String to) {
+    return '$from → $to rate unavailable. The operation was not saved: try again after a sync.';
+  }
+
+  @override
+  String entryCurrencyHint(String code) {
+    return 'Currency: $code';
+  }
+
+  @override
+  String amountInCurrency(String code) {
+    return 'Amount entered in $code';
+  }
+
+  @override
+  String get operationNotFound => 'Operation not found.';
+
+  @override
+  String get forceUpdateTitle => 'Update required';
+
+  @override
+  String get forceUpdateMessage =>
+      'A new version of FIMUS is available. Install it to keep using the app.';
+
+  @override
+  String get forceUpdateButton => 'Update';
+
+  @override
+  String get forceUpdateFailed =>
+      'The update did not start. Tap “Update” to try again.';
 }

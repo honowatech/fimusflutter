@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
-// `Platform` sert uniquement à décrire l'appareil au login (`device_model`).
-// Tous les accès sont gardés par `kIsWeb`, la plateforme web n'ayant pas
-// `dart:io`.
+// `Platform` sert uniquement de repli pour décrire l'appareil au login
+// (`device_model`) quand `device_info_plus` n'a rien à dire. Tous les accès
+// sont gardés par `kIsWeb`, la plateforme web n'ayant pas `dart:io`.
 import 'dart:io' show Platform;
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -88,18 +90,126 @@ class AuthService {
   static String get devicePlatform =>
       kIsWeb ? 'web' : defaultTargetPlatform.name;
 
+  /// Modèle résolu par `device_info_plus`, `null` quand le plugin n'a rien à
+  /// dire (plateforme non couverte, canal de méthode absent en test…).
+  static String? _resolvedDeviceModel;
+
+  /// Vrai dès que la résolution a été **tentée**, succès ou échec : on
+  /// n'interroge le plugin qu'une fois par lancement.
+  static bool _deviceModelResolved = false;
+
+  /// Résolution en cours, partagée par les appels concurrents (le login et
+  /// l'envoi du jeton FCM peuvent la demander en même temps).
+  static Future<String?>? _deviceModelPending;
+
   /// Description lisible de l'appareil, envoyée au login sous la clé
   /// `device_model` pour que l'alerte « nouvelle connexion » nomme l'appareil
-  /// au lieu d'annoncer « un nouvel appareil ».
+  /// (« Google Pixel 7 ») au lieu d'annoncer « un nouvel appareil ».
   ///
-  /// Limite assumée : `device_info_plus` n'est pas une dépendance du projet
-  /// (et `pubspec.yaml` est hors périmètre de ce sprint), donc le vrai modèle
-  /// commercial (« Pixel 7 ») n'est pas accessible. On envoie ce que
-  /// `dart:io` sait dire — par ex. « Android 13 (SDK 33) » ou
-  /// « Version 17.4 (Build 21E219) » — ce qui reste bien plus parlant qu'un
-  /// libellé neutre. À remplacer par `DeviceInfoPlugin().androidInfo.model`
-  /// dès que la dépendance sera ajoutée.
+  /// Le getter reste **synchrone** parce que `NotificationService` le lit tel
+  /// quel au moment d'envoyer le jeton FCM, alors que `device_info_plus` a une
+  /// API asynchrone : la vraie valeur est résolue une fois par
+  /// [ensureDeviceModel] puis mémorisée. Tant qu'elle n'est pas connue, on
+  /// rend le repli [_osDescription] (« Android 13 (SDK 33) »), moins précis
+  /// mais toujours plus parlant qu'un libellé neutre — et une lecture à froid
+  /// amorce la résolution pour les lectures suivantes.
   static String? get deviceModel {
+    if (_deviceModelResolved) return _resolvedDeviceModel ?? _osDescription;
+    unawaited(ensureDeviceModel());
+    return _osDescription;
+  }
+
+  /// Résout le modèle de l'appareil auprès de `device_info_plus`, une seule
+  /// fois, et rend la valeur mémorisée.
+  ///
+  /// Tout échec est un non-événement : sur le web, sous `flutter test` ou sur
+  /// une plateforme sans implémentation, le plugin lève
+  /// (`MissingPluginException`) ou ne sait rien dire — on retombe alors sur
+  /// [_osDescription] et l'authentification se poursuit normalement. Cette
+  /// méthode ne relance donc jamais l'exception.
+  static Future<String?> ensureDeviceModel() {
+    if (_deviceModelResolved) return Future<String?>.value(_resolvedDeviceModel);
+    return _deviceModelPending ??= _readDeviceModel().then((value) {
+      _resolvedDeviceModel = value;
+      _deviceModelResolved = true;
+      _deviceModelPending = null;
+      return value;
+    });
+  }
+
+  /// Remet le cache à zéro. Réservé aux tests : le modèle d'un appareil ne
+  /// change pas en cours d'exécution.
+  @visibleForTesting
+  static void debugResetDeviceModel() {
+    _resolvedDeviceModel = null;
+    _deviceModelResolved = false;
+    _deviceModelPending = null;
+  }
+
+  /// Interrogation effective du plugin, par plateforme.
+  static Future<String?> _readDeviceModel() async {
+    try {
+      final info = DeviceInfoPlugin();
+      if (kIsWeb) {
+        final web = await info.webBrowserInfo;
+        // Sur le web il n'existe pas de modèle : le navigateur et le système
+        // hôte sont ce qui distingue le mieux deux « appareils ».
+        return _label([web.browserName.name, web.platform]);
+      }
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.android:
+          final android = await info.androidInfo;
+          // `manufacturer` + `model` donne « Google Pixel 7 » ; le fabricant
+          // est omis quand le modèle le répète déjà (« Xiaomi Xiaomi 13 »).
+          return _label([android.manufacturer, android.model]);
+        case TargetPlatform.iOS:
+          final ios = await info.iosInfo;
+          // `modelName` est le nom commercial (« iPhone 15 Pro ») ; `model`
+          // reste un générique (« iPhone ») donc sert seulement de repli.
+          return _label([ios.modelName.isNotEmpty ? ios.modelName : ios.model]);
+        case TargetPlatform.macOS:
+          final mac = await info.macOsInfo;
+          return _label([mac.modelName.isNotEmpty ? mac.modelName : mac.model]);
+        case TargetPlatform.windows:
+          final windows = await info.windowsInfo;
+          return _label([windows.computerName]);
+        case TargetPlatform.linux:
+          final linux = await info.linuxInfo;
+          return _label([linux.prettyName]);
+        case TargetPlatform.fuchsia:
+          return null;
+      }
+    } catch (e) {
+      // Plugin absent (tests unitaires, plateforme non gérée) ou canal en
+      // erreur : le serveur se rabat sur `platform` / sur le repli OS.
+      debugPrint('AuthService.deviceModel indisponible : $e');
+      return null;
+    }
+  }
+
+  /// Assemble un libellé lisible en éliminant les vides et les répétitions.
+  static String? _label(List<String?> parts) {
+    final kept = <String>[];
+    for (final part in parts) {
+      final value = part?.trim() ?? '';
+      if (value.isEmpty) continue;
+      final alreadyCovered = kept.any(
+        (k) => k.toLowerCase().contains(value.toLowerCase()),
+      );
+      if (alreadyCovered) continue;
+      kept.removeWhere((k) => value.toLowerCase().contains(k.toLowerCase()));
+      kept.add(value);
+    }
+    if (kept.isEmpty) return null;
+    final label = kept.join(' ');
+    // Le serveur stocke le libellé dans une colonne courte : on borne ici
+    // plutôt que de laisser le 422 arriver.
+    return label.length <= 100 ? label : label.substring(0, 100);
+  }
+
+  /// Repli historique : ce que `dart:io` sait dire de la plateforme, par ex.
+  /// « Android 13 (SDK 33) » ou « ios Version 17.4 (Build 21E219) ».
+  static String? get _osDescription {
     if (kIsWeb) return null;
     try {
       final version = Platform.operatingSystemVersion.trim();
@@ -119,6 +229,10 @@ class AuthService {
   /// Champs d'identification de l'appareil communs aux trois points d'entrée
   /// d'authentification (login, register, Google). Extraits ici pour qu'un
   /// seul endroit décide de ce qui part au serveur.
+  ///
+  /// Préférer [resolvedDeviceFields] dans un contexte asynchrone : ce
+  /// constructeur-ci prend [deviceModel] tel qu'il est, éventuellement encore
+  /// sur son repli.
   static Map<String, dynamic> deviceFields(String? deviceId) {
     final model = deviceModel;
     return {
@@ -126,6 +240,17 @@ class AuthService {
       'platform': devicePlatform,
       if (model != null && model.isNotEmpty) 'device_model': model,
     };
+  }
+
+  /// [deviceFields] après résolution du modèle réel : utilisé par les trois
+  /// points d'entrée d'authentification, seuls endroits où l'attente (un
+  /// aller-retour de canal de méthode) est négligeable devant l'appel réseau
+  /// qui suit, et où le libellé compte vraiment (alerte « nouvelle connexion »).
+  static Future<Map<String, dynamic>> resolvedDeviceFields(
+    String? deviceId,
+  ) async {
+    await ensureDeviceModel();
+    return deviceFields(deviceId);
   }
 
   /// Action « Ce n'était pas moi » de l'alerte `new_login`.
@@ -631,7 +756,7 @@ class AuthService {
           // `device_id`, `platform` et `device_model` : sans eux l'alerte de
           // nouvelle connexion annonce « un nouvel appareil » (cf.
           // LoginDeviceGuard côté backend).
-          ...deviceFields(deviceId),
+          ...await resolvedDeviceFields(deviceId),
         },
       );
 
@@ -662,7 +787,7 @@ class AuthService {
           'country_id': countryId,
           'type': type,
           'pseudo': pseudo,
-          ...deviceFields(deviceId),
+          ...await resolvedDeviceFields(deviceId),
         },
       );
 
@@ -673,15 +798,146 @@ class AuthService {
     }
   }
 
-  Future<void> forgotPassword(String email) async {
+  // ---------------------------------------------------------------------------
+  // Réinitialisation du mot de passe — flux en trois appels (sprint 7)
+  //
+  // Le serveur ne renvoie plus de mot de passe par e-mail : il envoie un code
+  // à usage unique, que l'application échange contre un jeton, qui seul
+  // autorise l'écriture du nouveau mot de passe.
+  //
+  // Règle transverse : les réponses des trois étapes sont **volontairement
+  // indistinctes** selon que l'adresse existe ou non (anti-énumération de
+  // comptes). Aucun message affiché par l'application ne doit donc laisser
+  // deviner l'existence d'un compte — d'où des exceptions typées sans détail
+  // et des libellés neutres côté écran.
+  //
+  // Les URLs sont construites ici plutôt que dans `ApiConfig` : ce sont les
+  // seuls appels du flux, et `ApiConfig.forgotPassword` (route historique,
+  // conservée comme alias par le serveur) n'est plus utilisé par l'application.
+  // ---------------------------------------------------------------------------
+
+  static String get _passwordForgotUrl => '${ApiConfig.baseUrl}/password/forgot';
+  static String get _passwordVerifyCodeUrl =>
+      '${ApiConfig.baseUrl}/password/verify-code';
+  static String get _passwordResetUrl => '${ApiConfig.baseUrl}/password/reset';
+
+  /// Étape 1/3 — demande l'envoi d'un code de réinitialisation.
+  ///
+  /// Rend toujours 200 quand l'adresse est bien formée, que le compte existe
+  /// ou non : le résultat ne renseigne que la durée de validité et la longueur
+  /// du code. Lève [PasswordResetThrottledException] sur 429 et
+  /// [PasswordResetValidationException] sur 422 (adresse malformée).
+  Future<PasswordResetCodeRequest> requestPasswordResetCode(String email) async {
     try {
-      await _dio.post(
-        ApiConfig.forgotPassword,
+      final response = await _dio.post(
+        _passwordForgotUrl,
         data: {'email': email},
       );
+      final data = response.data;
+      return PasswordResetCodeRequest.fromJson(
+        data is Map<String, dynamic> ? data : const {},
+      );
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw _passwordResetError(e);
     }
+  }
+
+  /// Étape 2/3 — échange le code contre un jeton de réinitialisation.
+  ///
+  /// Lève [InvalidResetCodeException] sur 422 : le serveur rend la même
+  /// réponse pour un code faux, périmé, déjà consommé, un quota d'essais
+  /// épuisé ou une adresse inconnue. Ne jamais tenter de distinguer ces cas
+  /// dans l'interface.
+  Future<PasswordResetToken> verifyPasswordResetCode({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final response = await _dio.post(
+        _passwordVerifyCodeUrl,
+        data: {'email': email, 'code': code},
+      );
+      final data = response.data;
+      return PasswordResetToken.fromJson(
+        data is Map<String, dynamic> ? data : const {},
+      );
+    } on DioException catch (e) {
+      throw _passwordResetError(e);
+    }
+  }
+
+  /// Étape 3/3 — pose le nouveau mot de passe contre le jeton obtenu à
+  /// l'étape 2.
+  ///
+  /// Le serveur **révoque toutes les sessions** (`sessions_revoked`) : après
+  /// un succès, l'utilisateur doit se reconnecter, y compris sur cet appareil.
+  /// Lève [InvalidResetTokenException] si le jeton a expiré (retour à l'étape
+  /// 1) ou [PasswordResetValidationException] si le mot de passe est refusé.
+  Future<PasswordResetResult> resetPasswordWithToken({
+    required String resetToken,
+    required String password,
+  }) async {
+    try {
+      final response = await _dio.post(
+        _passwordResetUrl,
+        data: {
+          'reset_token': resetToken,
+          'password': password,
+          'password_confirmation': password,
+        },
+      );
+      final data = response.data;
+      return PasswordResetResult.fromJson(
+        data is Map<String, dynamic> ? data : const {},
+      );
+    } on DioException catch (e) {
+      throw _passwordResetError(e);
+    }
+  }
+
+  /// Traduit les réponses d'erreur du flux de réinitialisation en exceptions
+  /// typées, en s'appuyant sur `error_code` plutôt que sur le texte du message
+  /// (qui n'est pas localisé côté serveur et ne doit pas être affiché tel
+  /// quel).
+  Exception _passwordResetError(DioException e) {
+    final status = e.response?.statusCode;
+    final data = e.response?.data;
+    final body = data is Map ? data : const {};
+    final errorCode = body['error_code']?.toString();
+
+    if (status == 429) {
+      return PasswordResetThrottledException(
+        retryAfter: _retryAfterOf(e, body),
+      );
+    }
+    if (status == 422) {
+      if (errorCode == 'INVALID_RESET_CODE') {
+        return const InvalidResetCodeException();
+      }
+      if (errorCode == 'INVALID_RESET_TOKEN') {
+        return const InvalidResetTokenException();
+      }
+      // Erreurs de validation Laravel (`errors`) : adresse malformée à
+      // l'étape 1, mot de passe refusé à l'étape 3.
+      final errors = body['errors'];
+      final fields = errors is Map
+          ? errors.keys.map((k) => k.toString()).toList()
+          : const <String>[];
+      return PasswordResetValidationException(fields: fields);
+    }
+    // Réseau coupé, 500, timeout… : un seul cas générique côté interface.
+    return PasswordResetUnavailableException(e.message ?? '');
+  }
+
+  /// Délai d'attente d'un 429 : en-tête `Retry-After` en priorité, corps
+  /// (`retry_after`) en repli, une minute à défaut — jamais 0, sinon
+  /// l'interface réactive le bouton immédiatement et le serveur refuse encore.
+  Duration _retryAfterOf(DioException e, Map<dynamic, dynamic> body) {
+    final header = e.response?.headers.value('retry-after');
+    final seconds = int.tryParse(header?.trim() ?? '') ??
+        int.tryParse(body['retry_after']?.toString() ?? '') ??
+        60;
+    return Duration(seconds: seconds > 0 ? seconds : 60);
   }
 
   Future<Map<String, dynamic>> loginWithGoogle({
@@ -701,7 +957,7 @@ class AuthService {
           if (type != null) 'type': type,
           if (countryId != null) 'country_id': countryId,
           if (pseudo != null) 'pseudo': pseudo,
-          ...deviceFields(deviceId),
+          ...await resolvedDeviceFields(deviceId),
         },
       );
 
@@ -978,4 +1234,122 @@ class DeviceAccountLimitException implements Exception {
   DeviceAccountLimitException(this.message, {this.max = 2});
   @override
   String toString() => message;
+}
+
+// -----------------------------------------------------------------------------
+// Réinitialisation du mot de passe par code — résultats et erreurs
+// -----------------------------------------------------------------------------
+
+/// Réponse de l'étape 1 (`POST /api/password/forgot`).
+///
+/// Ne dit **rien** de l'existence du compte : seulement combien de temps le
+/// code reste valable et combien de chiffres il comporte.
+class PasswordResetCodeRequest {
+  /// Durée de validité du code (15 minutes côté serveur, `expires_in`).
+  final Duration expiresIn;
+
+  /// Longueur attendue du code (`code_length`, 6 aujourd'hui) : l'écran s'y
+  /// adapte plutôt que de figer 6 dans l'interface.
+  final int codeLength;
+
+  const PasswordResetCodeRequest({
+    this.expiresIn = const Duration(minutes: 15),
+    this.codeLength = 6,
+  });
+
+  factory PasswordResetCodeRequest.fromJson(Map<String, dynamic> json) {
+    final seconds = _asInt(json['expires_in']);
+    final length = _asInt(json['code_length']);
+    return PasswordResetCodeRequest(
+      expiresIn: Duration(seconds: seconds > 0 ? seconds : 15 * 60),
+      codeLength: length > 0 ? length : 6,
+    );
+  }
+}
+
+/// Réponse de l'étape 2 (`POST /api/password/verify-code`) : le jeton opaque
+/// qui autorise l'étape 3, et sa durée de vie propre (10 minutes).
+class PasswordResetToken {
+  final String token;
+  final Duration expiresIn;
+
+  const PasswordResetToken({
+    required this.token,
+    this.expiresIn = const Duration(minutes: 10),
+  });
+
+  factory PasswordResetToken.fromJson(Map<String, dynamic> json) {
+    final seconds = _asInt(json['expires_in']);
+    return PasswordResetToken(
+      token: json['reset_token']?.toString() ?? '',
+      expiresIn: Duration(seconds: seconds > 0 ? seconds : 10 * 60),
+    );
+  }
+}
+
+/// Réponse de l'étape 3 (`POST /api/password/reset`).
+class PasswordResetResult {
+  /// `true` quand le serveur a coupé toutes les sessions : l'utilisateur doit
+  /// se reconnecter, y compris sur cet appareil.
+  final bool sessionsRevoked;
+
+  const PasswordResetResult({this.sessionsRevoked = true});
+
+  factory PasswordResetResult.fromJson(Map<String, dynamic> json) =>
+      PasswordResetResult(sessionsRevoked: json['sessions_revoked'] != false);
+}
+
+int _asInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+/// Socle des erreurs du flux de réinitialisation.
+///
+/// Volontairement **sans message serveur** : les textes affichés viennent des
+/// ARB, et aucun ne doit varier selon l'existence du compte.
+sealed class PasswordResetException implements Exception {
+  const PasswordResetException();
+}
+
+/// 422 `INVALID_RESET_CODE` — code faux, périmé, déjà consommé, quota d'essais
+/// épuisé **ou** adresse inconnue. Le serveur ne distingue pas ces cas, et
+/// l'interface ne doit pas prétendre le faire.
+class InvalidResetCodeException extends PasswordResetException {
+  const InvalidResetCodeException();
+}
+
+/// 422 `INVALID_RESET_TOKEN` — le jeton de l'étape 2 a expiré ou a déjà servi :
+/// il faut redemander un code.
+class InvalidResetTokenException extends PasswordResetException {
+  const InvalidResetTokenException();
+}
+
+/// 429 `TOO_MANY_ATTEMPTS` — trop de demandes. [retryAfter] vient de l'en-tête
+/// `Retry-After` (ou du corps) et sert à afficher un décompte plutôt qu'à
+/// laisser marteler le bouton.
+class PasswordResetThrottledException extends PasswordResetException {
+  final Duration retryAfter;
+  const PasswordResetThrottledException({
+    this.retryAfter = const Duration(minutes: 1),
+  });
+}
+
+/// 422 de validation : adresse malformée (étape 1) ou mot de passe refusé
+/// (étape 3). [fields] contient les clés renvoyées par le serveur (`email`,
+/// `password`) pour viser le bon champ à l'écran.
+class PasswordResetValidationException extends PasswordResetException {
+  final List<String> fields;
+  const PasswordResetValidationException({this.fields = const []});
+
+  bool get concernsPassword => fields.contains('password');
+  bool get concernsEmail => fields.contains('email');
+}
+
+/// Réseau coupé, 5xx, délai dépassé : un seul cas générique à l'écran. Le
+/// détail technique reste dans [details] pour les journaux.
+class PasswordResetUnavailableException extends PasswordResetException {
+  final String details;
+  const PasswordResetUnavailableException([this.details = '']);
 }

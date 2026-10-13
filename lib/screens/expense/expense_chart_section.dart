@@ -3,6 +3,7 @@ import 'package:monitrack/l10n/app_localizations.dart';
 
 import '../../models/expense.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/formatters.dart';
 import 'expense_bar_chart.dart';
 import 'expense_chart_data.dart';
 import 'expense_line_chart.dart';
@@ -15,6 +16,7 @@ class ExpenseChartSection extends StatelessWidget {
     required this.range,
     required this.expenses,
     required this.currency,
+    required this.activeRates,
     required this.showIncome,
     required this.showExpense,
     required this.isBarChart,
@@ -24,6 +26,10 @@ class ExpenseChartSection extends StatelessWidget {
   final DateTimeRange range;
   final List<Expense> expenses;
   final String currency;
+
+  /// Taux de change de l'écran, récupérés une seule fois : les séries sont des
+  /// agrégats, elles mêlent les devises des opérations.
+  final Map<String, double> activeRates;
   final bool showIncome;
   final bool showExpense;
   final bool isBarChart;
@@ -33,7 +39,16 @@ class ExpenseChartSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    final dailyData = aggregateDailyData(expenses, range);
+    final dailyData = aggregateDailyData(
+      expenses,
+      range,
+      profileCurrency: currency,
+      activeRates: activeRates,
+    );
+    // Au moins une opération dans une devise étrangère : les points tracés
+    // résultent d'une conversion, les infobulles le signalent.
+    final converted =
+        expenses.any((e) => MoneyFormatter.isForeign(e.currency, currency));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,9 +81,11 @@ class ExpenseChartSection extends StatelessWidget {
                 )
               : isBarChart
                   ? buildExpenseBarChart(
-                      dailyData, showIncome, showExpense, currency, colorScheme)
+                      dailyData, showIncome, showExpense, currency, colorScheme,
+                      converted: converted)
                   : buildExpenseLineChart(
-                      dailyData, showIncome, showExpense, currency, colorScheme),
+                      dailyData, showIncome, showExpense, currency, colorScheme,
+                      converted: converted),
         ),
         if (dailyData.isNotEmpty) ...[
           const SizedBox(height: 12),

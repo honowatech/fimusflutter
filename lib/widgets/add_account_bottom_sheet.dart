@@ -8,7 +8,6 @@ import '../models/contact.dart';
 import '../providers/account_provider.dart';
 import '../providers/contact_provider.dart';
 import '../providers/profile_provider.dart';
-import '../services/sync_service.dart';
 import '../utils/app_theme.dart';
 import '../utils/formatters.dart';
 import 'add_contact_bottom_sheet.dart';
@@ -292,9 +291,10 @@ class _AddAccountBottomSheetState extends State<AddAccountBottomSheet> {
           isShared: _selectedContacts.isNotEmpty,
         );
         
+        // `AccountProvider.addAccount` pousse déjà la création au serveur :
+        // le `SyncService().push()` qui suivait ici doublait l'envoi.
         await accountProvider.addAccount(newAccount);
         isSuccessLocally = true;
-        await SyncService().push();
 
         if (selectedContactIds.isNotEmpty) {
           await accountProvider.shareAccountWithMultiple(newAccount.id, selectedContactIds);

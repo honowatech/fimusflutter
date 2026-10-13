@@ -9,7 +9,6 @@ import '../models/account.dart';
 import '../models/expense.dart';
 import '../utils/formatters.dart';
 import '../utils/translation_helper.dart';
-import '../services/database_service.dart';
 import 'add_expense_screen.dart';
 import 'add_scheduled_expense_screen.dart';
 import '../utils/app_theme.dart';
@@ -158,21 +157,37 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
     );
     if (confirmed != true) return;
 
+    // Une opération programmée n'a jamais été imputée : rien à rendre au solde.
     if (_expense.scheduleStatus == 'scheduled') {
       await expenseProvider.deleteExpense(_expense.id);
-    } else {
-      await DatabaseService.instance.runTransaction((txn) async {
-        if (_expense.accountId != null) {
-          await accountProvider.updateBalance(
-            _expense.accountId!,
-            _isIncome ? -_expense.amount : _expense.amount,
-            executor: txn,
-          );
-        }
-        await expenseProvider.deleteExpense(_expense.id, executor: txn);
-      });
+      if (mounted) Navigator.pop(context);
+      return;
     }
-    if (mounted) Navigator.pop(context);
+
+    // Suppression et réajustement du solde (converti) dans une transaction
+    // unique, portée par le provider.
+    final result = await expenseProvider.deleteExpenseAndAdjustBalance(
+      _expense,
+      accountProvider: accountProvider,
+    );
+    if (!mounted) return;
+    // Refus : la ligne est toujours là, on reste sur le détail.
+    if (!result.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.isRateUnavailable
+                ? l10n.balanceRateUnavailable(
+                    result.missingFrom ?? '?', result.missingTo ?? '?')
+                : l10n.operationNotFound,
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    Navigator.pop(context);
   }
 
   @override
@@ -262,6 +277,20 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                 label: l10n.category,
                 value: l10n.translateCategory(_expense.category),
               ),
+              // Devise rappelée en clair uniquement quand elle est connue et
+              // différente de celle du profil : sur une ligne « ordinaire », la
+              // répéter n'apprendrait rien.
+              if (MoneyFormatter.isForeign(_expense.currency, currency))
+                _DetailRow(
+                  icon: Icons.currency_exchange,
+                  label: l10n.currency,
+                  value: l10n.amountInCurrency(
+                      MoneyFormatter.label(_expense.currency, currency)),
+                  valueColor: colorScheme.tone(
+                    light: Colors.amber.shade800,
+                    dark: colorScheme.warning,
+                  ),
+                ),
               _DetailRow(
                 icon: Icons.sticky_note_2_outlined,
                 label: l10n.noteLabel,
@@ -331,7 +360,11 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                   _DetailRow(
                     icon: Icons.payments_outlined,
                     label: l10n.amountPerInstallment,
-                    value: '${_expense.installmentAmount!.formatAmountDouble()} $currency',
+                    value: MoneyFormatter.format(
+                      _expense.installmentAmount!,
+                      rowCurrency: _expense.currency,
+                      profileCurrency: currency,
+                    ),
                   ),
                 if (_expense.dueDate != null)
                   _DetailRow(
@@ -434,17 +467,41 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${_isIncome ? '+' : '-'}${_expense.amount.formatAmountDouble()} $currency',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: color,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    // Montant affiché dans la devise où il a été saisi, et non
+                    // dans celle du profil : convertir ici donnerait un chiffre
+                    // qui ne correspond à aucune opération réelle.
+                    '${_isIncome ? '+' : '-'}'
+                    '${MoneyFormatter.format(_expense.amount, rowCurrency: _expense.currency, profileCurrency: currency)}',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              // Marqueur visuel de devise étrangère : le code seul, noyé dans un
+              // montant, ne saute pas aux yeux.
+              if (MoneyFormatter.isForeign(_expense.currency, currency)) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.currency_exchange,
+                  size: 20,
+                  color: colorScheme.tone(
+                    light: Colors.amber.shade800,
+                    dark: colorScheme.warning,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

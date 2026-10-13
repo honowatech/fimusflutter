@@ -73,7 +73,14 @@ void showScheduledExpenseActionBottomSheet(BuildContext context, Expense expense
                       ),
                     ),
                     Text(
-                      '-${expense.amount.formatAmount()} $currency',
+                      // Opération isolée : affichée dans la devise où elle a
+                      // été saisie, jamais convertie.
+                      '-${MoneyFormatter.format(
+                        expense.amount,
+                        rowCurrency: expense.currency,
+                        profileCurrency: currency,
+                        decimalPlaces: null,
+                      )}',
                       style: TextStyle(
                         color: theme.colorScheme.warning,
                         fontWeight: FontWeight.bold,
@@ -228,7 +235,14 @@ void showExpenseActionBottomSheet(BuildContext context, Expense transaction) {
                       ),
                     ),
                     Text(
-                      '${isIncome ? '+' : '-'}${transaction.amount.formatAmount()} $currency',
+                      // Opération isolée : devise de la ligne, pas celle du
+                      // profil.
+                      '${isIncome ? '+' : '-'}${MoneyFormatter.format(
+                        transaction.amount,
+                        rowCurrency: transaction.currency,
+                        profileCurrency: currency,
+                        decimalPlaces: null,
+                      )}',
                       style: TextStyle(
                         color: isIncome
                             ? theme.colorScheme.income

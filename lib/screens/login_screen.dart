@@ -7,6 +7,7 @@ import '../providers/profile_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/searchable_country_dropdown.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
+import 'password_reset_screen.dart';
 import 'register_screen.dart';
 import '../utils/app_theme.dart';
 
@@ -678,88 +679,32 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _showForgotPasswordDialog() async {
-    final emailController = TextEditingController(text: _emailController.text);
-    bool isSubmitting = false;
+  /// Ouvre le parcours de réinitialisation par code (sprint 7).
+  ///
+  /// L'ancienne boîte de dialogue appelait `POST /api/forgot-password` et
+  /// annonçait « un nouveau mot de passe vous a été envoyé » : depuis que le
+  /// serveur envoie un **code** au lieu d'un mot de passe, ce message était
+  /// faux et l'utilisateur n'avait aucun écran pour saisir le code. Le lien
+  /// mène donc maintenant à [PasswordResetScreen], qui porte les trois étapes.
+  Future<void> _openPasswordReset() async {
     final l10n = AppLocalizations.of(context)!;
-
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(l10n.forgotPassword),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(l10n.forgotPasswordInstruction),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: l10n.email,
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
-                  child: Text(l10n.cancel.toUpperCase()),
-                ),
-                ElevatedButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          final email = emailController.text.trim();
-                          if (email.isEmpty || !email.contains('@')) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(l10n.pleaseEnterValidEmail)),
-                            );
-                            return;
-                          }
-                          setDialogState(() => isSubmitting = true);
-                          try {
-                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                            await authProvider.forgotPassword(context, email);
-                            if (mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.forgotPasswordSent),
-                                  duration: const Duration(seconds: 5),
-                                  backgroundColor: _snackSuccess(context),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            setDialogState(() => isSubmitting = false);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(e.toString()),
-                                  backgroundColor: _snackError(context),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(l10n.resetPasswordBtn),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final done = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PasswordResetScreen(
+          initialEmail: _emailController.text.trim(),
+        ),
+      ),
+    );
+    if (!mounted || done != true) return;
+    // Le serveur a révoqué toutes les sessions : on le dit ici, une fois
+    // l'écran de connexion revenu, plutôt que dans un écran qui se ferme.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.passwordResetSuccess),
+        duration: const Duration(seconds: 6),
+        backgroundColor: _snackSuccess(context),
+      ),
     );
   }
 
@@ -842,7 +787,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                      onPressed: _isLoading ? null : _openPasswordReset,
                       child: Text(
                         l10n.forgotPassword,
                         style: TextStyle(

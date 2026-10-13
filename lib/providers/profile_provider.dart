@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../utils/currency_converter.dart';
 import '../services/sync_service.dart';
 import '../utils/countries_data.dart';
 
@@ -138,7 +139,8 @@ class ProfileProvider with ChangeNotifier {
             lignesMarquees += await txn.rawUpdate(
               'UPDATE $table SET currency = ?, is_synced = 0, updated_at = ? '
               'WHERE currency IS NULL',
-              [oldCurrency, nowStr],
+              [CurrencyConverter.normalizeCode(oldCurrency) ?? oldCurrency,
+                nowStr],
             );
           }
         });

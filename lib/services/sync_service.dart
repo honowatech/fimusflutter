@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
+import '../services/alerts/alert_settings_store.dart';
+import '../services/alerts/alert_settings_sync.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/exchange_rate_service.dart';
@@ -54,6 +56,41 @@ class SyncService {
     'products',
     'staff_members',
   ];
+
+  // ---------------------------------------------------------------------------
+  // Section `alert_settings` (contrat § 4.2) — portabilité des seuils d'alerte
+  // ---------------------------------------------------------------------------
+
+  /// Clé de la section dans `sync/push` et `sync/pull`.
+  ///
+  /// **Seule section sans `id`** : la clé métier est le couple `kind` +
+  /// `target`. Elle n'est donc volontairement **pas** déclarée dans
+  /// [_payloadKeys], qui décrit des tables SQLite locales — ni
+  /// [_collectTombstones] ni [_applyTombstone] n'ont de sens ici, la section
+  /// vivant en SharedPreferences et le pull excluant déjà les lignes
+  /// supprimées.
+  static const String alertSettingsKey = 'alert_settings';
+
+  /// Variante camelCase acceptée à la descente, par tolérance, comme pour
+  /// `staff_members`.
+  static const String _alertSettingsAltKey = 'alertSettings';
+
+  final AlertSettingsStore _alertSettingsStore = const AlertSettingsStore();
+
+  /// Lignes de réglages d'alerte en attente d'envoi.
+  ///
+  /// Déclenche au passage la **migration one-shot** des seuils déjà présents
+  /// en SharedPreferences avant le sprint 7 (cf.
+  /// `AlertSettingsStore.ensureMigrated`). Toute erreur de lecture est absorbée
+  /// : une préférence illisible ne doit pas empêcher le push des tables.
+  Future<List<AlertSettingRow>> _pendingAlertSettings() async {
+    try {
+      return await _alertSettingsStore.readPendingPush();
+    } catch (e) {
+      debugPrint('[Sync] lecture des réglages d’alerte impossible : $e');
+      return const <AlertSettingRow>[];
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Journal des conflits (constat M4)
@@ -223,7 +260,11 @@ class SyncService {
       ),
     ];
 
-    if (batches.every((b) => b.toPush.isEmpty)) {
+    // Réglages d'alerte portables : ni table SQLite ni `id`, donc collectés à
+    // part. La migration one-shot a lieu ici, au premier push venu.
+    final alertRows = await _pendingAlertSettings();
+
+    if (batches.every((b) => b.toPush.isEmpty) && alertRows.isEmpty) {
       return SyncResult(success: true, pushed: 0, pulled: 0);
     }
 
@@ -232,6 +273,8 @@ class SyncService {
         ApiConfig.syncPush,
         data: {
           for (final batch in batches) batch.payloadKey: batch.toPush,
+          alertSettingsKey:
+              alertRows.map((row) => row.toPushJson()).toList(growable: false),
         },
       );
 
@@ -264,6 +307,20 @@ class SyncService {
           }
           await _markAsSynced(db, batch.table, toMark);
           await _cleanDeleted(db, batch.table);
+        }
+
+        // La section `alert_settings` n'a pas d'`id` : l'accusé par ligne de
+        // [PushAck] ne sait pas la désigner, et le contrat n'en prévoit pas.
+        // Un 200 vaut donc acquittement de ces lignes — le rapprochement se
+        // fait sur (clé métier, `updated_at`), si bien qu'une modification
+        // faite pendant l'envoi reste en attente au lieu d'être perdue.
+        if (alertRows.isNotEmpty) {
+          try {
+            await _alertSettingsStore.markPushed(alertRows);
+            pushed += alertRows.length;
+          } catch (e) {
+            debugPrint('[Sync] acquittement des réglages d’alerte : $e');
+          }
         }
 
         return SyncResult(
@@ -372,6 +429,11 @@ class SyncService {
           }
         });
 
+        // Réglages d'alerte : hors transaction SQLite, la section vivant en
+        // SharedPreferences. C'est ce passage qui **hydrate** budgets et seuils
+        // au premier lancement sur un appareil neuf.
+        pulled += await _applyPulledAlertSettings(data);
+
         return SyncResult(
           success: true,
           pushed: 0,
@@ -389,6 +451,27 @@ class SyncService {
     } catch (e) {
       return SyncResult(
           success: false, pushed: 0, pulled: 0, error: e.toString());
+    }
+  }
+
+  /// Applique la section `alert_settings` d'un `sync/pull`.
+  ///
+  /// Le serveur exclut les lignes supprimées et fournit `updated_at` :
+  /// l'arbitrage est un **dernier écrivain gagnant**, conforme au reste du
+  /// protocole. Une ligne locale non encore poussée mais plus récente est
+  /// conservée et repartira au prochain push.
+  ///
+  /// Renvoie le nombre de lignes retenues, comptées dans `pulled`. Toute erreur
+  /// est absorbée : elle ne doit pas faire échouer un pull dont les tables sont
+  /// déjà écrites.
+  Future<int> _applyPulledAlertSettings(Map<String, dynamic> data) async {
+    final section = data[alertSettingsKey] ?? data[_alertSettingsAltKey];
+    if (section == null) return 0;
+    try {
+      return await _alertSettingsStore.applyPulledRows(section);
+    } catch (e) {
+      debugPrint('[Sync] réglages d’alerte non appliqués : $e');
+      return 0;
     }
   }
 

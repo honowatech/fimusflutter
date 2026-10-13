@@ -226,10 +226,6 @@ class AuthProvider extends ChangeNotifier {
     return true;
   }
 
-  Future<void> forgotPassword(BuildContext context, String email) async {
-    await _authService.forgotPassword(email);
-  }
-
   Future<void> updatePseudo(String newPseudo) async {
     await _authService.updatePseudo(newPseudo);
     if (_user != null) {

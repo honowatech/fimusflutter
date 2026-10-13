@@ -114,8 +114,11 @@ class CurrencyConverter {
     required String to,
     required Map<String, double> activeRates,
   }) {
-    final normFrom = _normalize(from);
-    final normTo = _normalize(to);
+    // `normalizeCode` et non `_normalize` : cette dernière ne traite que les
+    // alias, pas la casse. `convert(from: 'xof')` rendait donc le montant
+    // inchangé au lieu de le convertir, sans le moindre signalement.
+    final normFrom = normalizeCode(from) ?? _normalize(from);
+    final normTo = normalizeCode(to) ?? _normalize(to);
 
     if (normFrom == normTo) return amount;
 
@@ -137,8 +140,10 @@ class CurrencyConverter {
     required String to,
     required Map<String, double> activeRates,
   }) {
-    final normFrom = _normalize(from);
-    final normTo = _normalize(to);
+    // Même correctif que dans [convert] : sans normalisation de la casse,
+    // `getRate(from: 'xof', to: 'EUR')` rendait 1.0.
+    final normFrom = normalizeCode(from) ?? _normalize(from);
+    final normTo = normalizeCode(to) ?? _normalize(to);
 
     if (normFrom == normTo) return 1.0;
 
@@ -213,6 +218,20 @@ class CurrencyConverter {
     final profil = normalizeCode(profileCurrency);
     final source = normalizeCode(operationCurrency) ?? profil;
     final cible = normalizeCode(accountCurrency) ?? profil;
+
+    // Une seule des deux devises est exploitable : impossible de savoir si
+    // une conversion est nécessaire. Rendre l'identité ici laisserait imputer
+    // 100 EUR sur un compte en XAF comme 100 XAF — exactement ce que cette
+    // fonction existe pour empêcher.
+    if ((source == null) != (cible == null)) {
+      return ConvertedAmount._(
+        outcome: ConversionOutcome.rateUnavailable,
+        amount: null,
+        from: source,
+        to: cible,
+        rate: null,
+      );
+    }
 
     // Aucune devise exploitable nulle part : rien à convertir, on est dans le
     // monde d'avant le palier 19.

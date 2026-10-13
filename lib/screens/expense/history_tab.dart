@@ -152,12 +152,27 @@ class ExpenseHistoryTab extends StatelessWidget {
                         title: Text(transaction.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text(subtitleText),
                         trailing: Text(
-                          '${isIncome ? '+' : '-'}${transaction.amount.formatAmount()} $currency',
+                          // Opération isolée : affichée dans la devise où elle
+                          // a été saisie. La convertir reviendrait à réécrire
+                          // le montant saisi ; seuls les agrégats le sont.
+                          '${isIncome ? '+' : '-'}${MoneyFormatter.format(
+                            transaction.amount,
+                            rowCurrency: transaction.currency,
+                            profileCurrency: currency,
+                            decimalPlaces: null,
+                          )}',
                           style: TextStyle(
                             color: isIncome
                                 ? Theme.of(context).colorScheme.income
                                 : Theme.of(context).colorScheme.expense,
                             fontWeight: FontWeight.bold,
+                            // Devise étrangère : l'italique signale que le
+                            // montant n'est pas dans la devise du profil (le
+                            // code ISO affiché le dit, l'italique le montre).
+                            fontStyle: MoneyFormatter.isForeign(
+                                    transaction.currency, currency)
+                                ? FontStyle.italic
+                                : null,
                             fontSize: 16,
                           ),
                         ),
@@ -203,10 +218,19 @@ class _ScheduledExpenseTile extends StatelessWidget {
       title: Text(expense.title, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(subtitle),
       trailing: Text(
-        '-${expense.amount.formatAmount()} $currency',
+        // Échéance isolée : devise de la ligne.
+        '-${MoneyFormatter.format(
+          expense.amount,
+          rowCurrency: expense.currency,
+          profileCurrency: currency,
+          decimalPlaces: null,
+        )}',
         style: TextStyle(
           color: Theme.of(context).colorScheme.warning,
           fontWeight: FontWeight.bold,
+          fontStyle: MoneyFormatter.isForeign(expense.currency, currency)
+              ? FontStyle.italic
+              : null,
           fontSize: 16,
         ),
       ),

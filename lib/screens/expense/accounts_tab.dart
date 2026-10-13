@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/account.dart';
 import '../../providers/account_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -11,6 +12,7 @@ import '../../widgets/add_account_bottom_sheet.dart';
 import '../../providers/expense_provider.dart';
 import '../account_detail_screen.dart';
 import '../../widgets/share_account_dialog.dart';
+import 'currency_display.dart';
 
 /// Convertit la couleur stockée en base (`#RRGGBB`, `0xAARRGGBB`…) en [Color].
 Color parseAccountColor(String? colorStr, BuildContext context) {
@@ -32,12 +34,47 @@ Color parseAccountColor(String? colorStr, BuildContext context) {
   return Theme.of(context).colorScheme.primaryContainer;
 }
 
+/// Libellé du solde d'un compte.
+///
+/// Le solde vit dans la devise du compte : les opérations imputées y sont déjà
+/// converties à l'écriture (`AccountProvider.updateBalance`). On l'affiche donc
+/// dans cette devise — c'est la seule qui soit exacte — et on ajoute
+/// l'équivalent dans celle du profil lorsqu'elle diffère, faute de quoi la
+/// liste des comptes juxtapose des nombres non comparables entre eux ni avec
+/// les totaux du tableau de bord.
+String accountBalanceLabel(
+  Account account, {
+  required String profileCurrency,
+  required Map<String, double> activeRates,
+}) {
+  final own = MoneyFormatter.format(
+    account.balance,
+    rowCurrency: account.currency,
+    profileCurrency: profileCurrency,
+    decimalPlaces: null,
+  );
+  if (!MoneyFormatter.isForeign(account.currency, profileCurrency)) return own;
+  return '$own ≈ ${MoneyFormatter.formatConverted(
+    account.balance,
+    rowCurrency: account.currency,
+    profileCurrency: profileCurrency,
+    activeRates: activeRates,
+    decimalPlaces: null,
+  )}';
+}
+
 /// Onglet « Comptes » : liste des comptes, partage, édition et suppression.
 class ExpenseAccountsTab extends StatelessWidget {
   const ExpenseAccountsTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ExchangeRatesBuilder(
+        // Taux chargés une seule fois pour tout l'onglet, jamais par ligne :
+        // l'équivalent affiché sous un solde en devise étrangère en a besoin.
+        builder: _buildAccounts,
+      );
+
+  Widget _buildAccounts(BuildContext context, Map<String, double> rates) {
     final l10n = AppLocalizations.of(context)!;
     // Abonnements limités à cet onglet.
     final accountProvider = context.watch<AccountProvider>();
@@ -81,7 +118,11 @@ class ExpenseAccountsTab extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  subtitle: Text('${account.balance.formatAmount()} $currency'),
+                  subtitle: Text(accountBalanceLabel(
+                    account,
+                    profileCurrency: currency,
+                    activeRates: rates,
+                  )),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

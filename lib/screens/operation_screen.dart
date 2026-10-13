@@ -11,12 +11,12 @@ import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart
 import 'package:flutter_native_contact_picker/model/contact.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
 import 'qr_scanner_screen.dart';
+import '../utils/currency_converter.dart';
 import '../utils/formatters.dart';
 import '../utils/ussd_formatter.dart';
 import '../providers/expense_provider.dart';
 import '../providers/account_provider.dart';
 import '../models/expense.dart';
-import '../services/database_service.dart';
 import '../widgets/category_form_field.dart';
 import '../providers/auth_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -328,23 +328,41 @@ class _OperationScreenState extends State<OperationScreen> {
                 }
               }
               
-              await DatabaseService.instance.runTransaction((txn) async {
-                  await expenseProvider.addExpense(Expense(
-                      id: const Uuid().v4(),
-                      title: expenseTitle,
-                      amount: totalAmount,
-                      category: _selectedCategory ?? 'Autre',
-                      date: DateTime.now(),
-                      type: 'expense',
-                      accountId: _selectedAccountId,
-                      creatorId: currentUserId,
-                      creatorName: currentUserName.isNotEmpty ? currentUserName : null,
-                  ), executor: txn);
-                  
-                  if (_selectedAccountId != null) {
-                      await accountProvider.updateBalance(_selectedAccountId!, -totalAmount, executor: txn);
-                  }
-              });
+              // Écriture de l'opération et imputation au solde (converties)
+              // portées par le provider, dans une transaction unique.
+              final result = await expenseProvider.addExpenseWithBalance(
+                Expense(
+                    id: const Uuid().v4(),
+                    title: expenseTitle,
+                    amount: totalAmount,
+                    category: _selectedCategory ?? 'Autre',
+                    date: DateTime.now(),
+                    type: 'expense',
+                    accountId: _selectedAccountId,
+                    creatorId: currentUserId,
+                    creatorName: currentUserName.isNotEmpty ? currentUserName : null,
+                ),
+                accountProvider: accountProvider,
+              );
+
+              // Le code USSD, lui, est déjà parti : on ne peut plus l'annuler.
+              // L'utilisateur doit donc savoir que la dépense n'a pas été
+              // enregistrée, sans quoi il croirait sa trésorerie à jour.
+              if (!result.isSuccess && mounted) {
+                final l10n = AppLocalizations.of(context)!;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      result.isRateUnavailable
+                          ? l10n.balanceRateUnavailable(
+                              result.missingFrom ?? '?', result.missingTo ?? '?')
+                          : l10n.operationNotFound,
+                    ),
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
           }
         }
       } catch (e) {
@@ -512,6 +530,24 @@ class _OperationScreenState extends State<OperationScreen> {
   // --------------------------------------------------------------------------
   // Build
   // --------------------------------------------------------------------------
+
+  /// Devise dans laquelle la dépense associée à l'opération sera enregistrée :
+  /// celle du compte imputé s'il en porte une, sinon celle du profil. Même règle
+  /// que celle appliquée par `ExpenseProvider` à la création.
+  String _entryCurrency(BuildContext context) {
+    final profileCurrency =
+        Provider.of<ProfileProvider>(context).profile.currency;
+    final accountCurrency = Provider.of<AccountProvider>(context)
+        .accounts
+        .where((a) => a.id == _selectedAccountId)
+        .firstOrNull
+        ?.currency;
+    return CurrencyConverter.resolveForNewOperation(
+          accountCurrency: accountCurrency,
+          profileCurrency: profileCurrency,
+        ) ??
+        profileCurrency;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -810,6 +846,30 @@ class _OperationScreenState extends State<OperationScreen> {
                         onSaved: (val) => _selectedCategory = val,
                       ),
                       const SizedBox(height: 16),
+                      // Devise dans laquelle la dépense sera enregistrée :
+                      // celle du compte imputé, sinon celle du profil. Sans ce
+                      // rappel, un compte en devise étrangère se règle à
+                      // l'aveugle.
+                      Row(
+                        children: [
+                          Icon(Icons.currency_exchange,
+                              size: 16,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
+                          const SizedBox(width: 6),
+                          Text(
+                            l10n.entryCurrencyHint(_entryCurrency(context)),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
                       if (Provider.of<AccountProvider>(context).accounts.isNotEmpty)
                         DropdownButtonFormField<String>(
                           value: (Provider.of<AccountProvider>(context).accounts.any((a) => a.id == _selectedAccountId)) ? _selectedAccountId : null,

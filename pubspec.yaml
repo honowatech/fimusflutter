@@ -80,6 +80,12 @@ dependencies:
   flutter_native_splash: ^2.4.4
   fl_chart: ^0.70.2
   image_picker: ^1.1.2
+  # Modèle commercial de l'appareil (« Pixel 7 »), envoyé au login et avec le
+  # jeton FCM : sans lui l'alerte « nouvelle connexion » annonçait la version
+  # d'OS rendue par `Platform.operatingSystemVersion`. Lecture isolée dans
+  # `AuthService.deviceModel`, avec repli si le plugin est absent (web, tests).
+  device_info_plus: ^13.2.0
+  in_app_update: ^5.0.0
 
 dev_dependencies:
   flutter_test:

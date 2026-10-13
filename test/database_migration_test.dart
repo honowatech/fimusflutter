@@ -600,6 +600,235 @@ void main() {
           'Solde');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Palier 19 — devise portée par la donnée (sprint 6)
+  //
+  // Contrat à ne pas dévier : colonne **nullable**, `NULL` = « devise inconnue,
+  // à interpréter dans celle du profil », aucun remplissage rétroactif. Les
+  // assertions d'ordre de colonnes ne sont pas décoratives : `ALTER TABLE ADD
+  // COLUMN` ajoute toujours en fin de table, et le `CREATE TABLE` de référence
+  // déclare `currency` en dernier pour que base migrée et base neuve aient le
+  // même ordre physique — c'est ce qui permet à la synchronisation et aux
+  // `SELECT *` de se comporter pareil dans les deux cas.
+  // ---------------------------------------------------------------------------
+
+  group('palier 19 : colonne currency', () {
+    tearDown(() async {
+      await DatabaseService.instance.close();
+    });
+
+    test(
+        'migration v18 → v19 : currency ajoutée en fin de table sur expenses '
+        'et accounts, lignes héritées à NULL', () async {
+      const fichier = 'mig_v18_vers_v19.db';
+      await _creerBaseHeritee(fichier, 18, _schemaHeriteV18(),
+          amorcer: (db) async {
+        await db.insert('expenses', _depenseHeritee('dep-v18'));
+        await db.insert('accounts', _compteHerite('cpt-v18'));
+      });
+
+      final db = await _ouvrirParLeService(fichier);
+
+      expect(await _versionUtilisateur(db), 19,
+          reason: 'le palier 19 est la version courante du schéma');
+      expect(DatabaseService.schemaVersion, 19);
+
+      // La colonne existe, et elle est la dernière : preuve qu'elle a été
+      // rattrapée par un ALTER sur la table existante et non obtenue par une
+      // recréation de table (qui aurait perdu les données).
+      expect((await _ordreColonnes(db, 'expenses')).last, 'currency');
+      expect((await _ordreColonnes(db, 'accounts')).last, 'currency');
+
+      // Aucun backfill : deviner la devise d'un montant déjà enregistré
+      // reviendrait à inventer de la donnée financière.
+      final depense =
+          await db.query('expenses', where: 'id = ?', whereArgs: ['dep-v18']);
+      expect(depense.single['currency'], isNull);
+      expect(depense.single['amount'], 1500.0,
+          reason: 'le palier 19 ne touche à aucun montant');
+      final compte =
+          await db.query('accounts', where: 'id = ?', whereArgs: ['cpt-v18']);
+      expect(compte.single['currency'], isNull);
+      expect(compte.single['balance'], 25000.0);
+
+      expect(await DatabaseService.describeSchemaGaps(db), isEmpty);
+      expect(DatabaseService.schemaIssues, isEmpty,
+          reason: 'une migration nominale ne doit journaliser aucun écart');
+    });
+
+    test(
+        'migration v18 → v19 : une opération créée après migration écrit et '
+        'relit sa devise', () async {
+      const fichier = 'mig_v19_ecriture.db';
+      await _creerBaseHeritee(fichier, 18, _schemaHeriteV18());
+
+      final db = await _ouvrirParLeService(fichier);
+
+      // Le modèle normalise 'xof' en 'XOF' : c'est l'INSERT réel de
+      // `ExpenseProvider.addExpense`, qui échouait sur une base v18.
+      await db.insert(
+        'expenses',
+        Expense(
+          id: 'dep-devise',
+          title: 'Course',
+          amount: 2500.0,
+          category: 'Transport',
+          date: DateTime(2026, 5, 3),
+          currency: 'xof',
+        ).toDbMap(),
+      );
+      final relue = await db
+          .query('expenses', where: 'id = ?', whereArgs: ['dep-devise']);
+      expect(relue.single['currency'], 'XOF');
+      expect(Expense.fromDbMap(relue.single).currency, 'XOF');
+
+      // Et une opération sans devise reste à NULL, sans valeur par défaut
+      // implicite qui viendrait mentir sur son origine.
+      await db.insert(
+        'expenses',
+        Expense(
+          id: 'dep-sans-devise',
+          title: 'Course',
+          amount: 1000.0,
+          category: 'Transport',
+          date: DateTime(2026, 5, 3),
+        ).toDbMap(),
+      );
+      expect(
+          (await db.query('expenses',
+                  where: 'id = ?', whereArgs: ['dep-sans-devise']))
+              .single['currency'],
+          isNull);
+
+      expect(DatabaseService.schemaIssues, isEmpty);
+    });
+
+    test(
+        'migration v17 → v19 : les paliers 18 et 19 s’enchaînent sur la même '
+        'base', () async {
+      const fichier = 'mig_v17_vers_v19.db';
+      await _creerBaseHeritee(fichier, 17, _schemaHeriteV17(),
+          amorcer: (db) async {
+        await db.insert('expenses', _depenseHeritee('dep-v17'));
+        await db.insert('accounts', _compteHerite('cpt-v17'));
+      });
+
+      final db = await _ouvrirParLeService(fichier);
+
+      expect(await _versionUtilisateur(db), 19);
+
+      // Palier 18 (rattrapage des colonnes orphelines)…
+      expect(await _colonnes(db, 'ussd_operations'),
+          containsAll(['customTemplate', 'requiredFields']));
+      expect(
+          await _colonnes(db, 'telecom_operators'), contains('userPhoneNumber'));
+      // …puis palier 19, appliqué après lui, donc en toute fin de table.
+      expect((await _ordreColonnes(db, 'expenses')).last, 'currency');
+      expect((await _ordreColonnes(db, 'accounts')).last, 'currency');
+
+      expect(
+          (await db.query('expenses', where: 'id = ?', whereArgs: ['dep-v17']))
+              .single['currency'],
+          isNull);
+      expect(
+          (await db.query('accounts', where: 'id = ?', whereArgs: ['cpt-v17']))
+              .single['currency'],
+          isNull);
+
+      expect(await DatabaseService.describeSchemaGaps(db), isEmpty);
+      expect(DatabaseService.schemaIssues, isEmpty);
+    });
+
+    test(
+        'base migrée et base neuve ont le même ordre de colonnes sur expenses '
+        'et accounts', () async {
+      // Un décalage d'ordre entre les deux ne casse aucune requête nommée mais
+      // casse tout code qui lit par position (`SELECT *` transmis tel quel) :
+      // l'égalité est l'invariant que la déclaration de `currency` en fin de
+      // `CREATE TABLE` est censée garantir.
+      const fichierMigre = 'mig_ordre_migre.db';
+      await _creerBaseHeritee(fichierMigre, 17, _schemaHeriteV17());
+      final migre = await _ouvrirParLeService(fichierMigre);
+      final ordreMigreDepenses = await _ordreColonnes(migre, 'expenses');
+      final ordreMigreComptes = await _ordreColonnes(migre, 'accounts');
+      await DatabaseService.instance.close();
+
+      const fichierNeuf = 'mig_ordre_neuf.db';
+      await _supprimerFichier(fichierNeuf);
+      final neuf = await _ouvrirParLeService(fichierNeuf);
+
+      expect(await _ordreColonnes(neuf, 'expenses'), ordreMigreDepenses);
+      expect(await _ordreColonnes(neuf, 'accounts'), ordreMigreComptes);
+      expect(ordreMigreDepenses.last, 'currency');
+      expect(ordreMigreComptes.last, 'currency');
+      expect(DatabaseService.schemaIssues, isEmpty);
+    });
+
+    test(
+        'idempotence : une seconde ouverture après le palier 19 ne retouche '
+        'plus le schéma', () async {
+      const fichier = 'mig_v19_idempotence.db';
+      await _creerBaseHeritee(fichier, 18, _schemaHeriteV18(),
+          amorcer: (db) async {
+        await db.insert('expenses', _depenseHeritee('dep-idem'));
+      });
+
+      final premiere = await _ouvrirParLeService(fichier);
+      // La ligne est estampillée à la main, comme le fait un changement de
+      // pays : la seconde ouverture ne doit pas la réécrire.
+      await premiere.rawUpdate(
+          "UPDATE expenses SET currency = 'XAF' WHERE id = 'dep-idem'");
+      final empreinteApresMigration = await _empreinteSchema(premiere);
+      expect(empreinteApresMigration['expenses'], contains('currency'));
+      expect(empreinteApresMigration['accounts'], contains('currency'));
+      await DatabaseService.instance.close();
+
+      final seconde = await _ouvrirParLeService(fichier);
+
+      // `ALTER TABLE ADD COLUMN` réécrit le `CREATE TABLE` mémorisé dans
+      // sqlite_master : une empreinte inchangée prouve qu'aucun ALTER n'a été
+      // rejoué.
+      expect(await _empreinteSchema(seconde), empreinteApresMigration);
+      expect(await _versionUtilisateur(seconde), 19);
+      final ligne = (await seconde
+              .query('expenses', where: 'id = ?', whereArgs: ['dep-idem']))
+          .single;
+      expect(ligne['currency'], 'XAF',
+          reason: 'la devise posée ne doit jamais être réécrite à l’ouverture');
+      expect(ligne['amount'], 1500.0);
+      expect(await DatabaseService.describeSchemaGaps(seconde), isEmpty);
+      expect(DatabaseService.schemaIssues, isEmpty);
+    });
+
+    test('colonne currency absente : describeSchemaGaps la nomme', () async {
+      // Contre-épreuve des tests précédents : si le palier 19 ne tournait pas,
+      // la vérification d'ouverture doit le dire au lieu de laisser l'écart
+      // passer inaperçu. La base est annoncée v19 pour qu'aucun palier ne
+      // s'exécute.
+      const fichier = 'mig_v19_ecart.db';
+      final schema = _schemaHeriteV18();
+      await _creerBaseHeritee(fichier, DatabaseService.schemaVersion, schema);
+
+      final db = await _ouvrirParLeService(fichier);
+
+      expect(
+        await DatabaseService.describeSchemaGaps(db),
+        containsAll([
+          'colonne manquante : accounts.currency',
+          'colonne manquante : expenses.currency',
+        ]),
+      );
+      const prefixe = 'schéma incomplet après migration — colonne manquante : ';
+      expect(
+        DatabaseService.schemaIssues,
+        containsAll([
+          '${prefixe}accounts.currency',
+          '${prefixe}expenses.currency',
+        ]),
+      );
+    });
+  });
 }
 // -----------------------------------------------------------------------------
 // Outils de test
@@ -854,4 +1083,59 @@ Map<String, String> _schemaHeriteV17() => {
           updated_at TEXT
         )
       ''',
+    };
+
+// --- Schéma v18 et compte hérité (palier 19) ---------------------------------
+//
+// Le v18 est le palier de réconciliation : les trois colonnes orphelines y sont
+// présentes (elles viennent d'être rattrapées) mais `currency` n'existe encore
+// nulle part. C'est l'état d'une base sortie du sprint 5.
+
+/// Avec `customTemplate` et `requiredFields`, sans `currency`.
+const String _creationOperationsUssdV18 = '''
+  CREATE TABLE ussd_operations (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    category TEXT NOT NULL,
+    defaultTemplate TEXT NOT NULL,
+    customTemplate TEXT,
+    requiredFields TEXT,
+    is_enabled INTEGER DEFAULT 1,
+    is_synced INTEGER DEFAULT 0,
+    sync_action TEXT DEFAULT 'created',
+    updated_at TEXT
+  )
+''';
+
+/// Avec `userPhoneNumber`.
+const String _creationOperateursV18 = '''
+  CREATE TABLE telecom_operators (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    userPhoneNumber TEXT,
+    country TEXT NOT NULL,
+    is_synced INTEGER DEFAULT 0,
+    sync_action TEXT DEFAULT 'created',
+    updated_at TEXT
+  )
+''';
+
+Map<String, String> _schemaHeriteV18() => {
+      ..._schemaHeriteV17(),
+      'ussd_operations': _creationOperationsUssdV18,
+      'telecom_operators': _creationOperateursV18,
+    };
+
+/// Compte hérité, antérieur au palier 19 : aucune colonne `currency`.
+Map<String, dynamic> _compteHerite(String id) => {
+      'id': id,
+      'name': 'Caisse',
+      'balance': 25000.0,
+      'type': 'cash',
+      'isDefault': 1,
+      'is_shared': 0,
+      'is_synced': 0,
+      'sync_action': 'created',
+      'updated_at': '2025-06-01T10:00:00.000',
     };

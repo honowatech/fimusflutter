@@ -27,6 +27,7 @@ import 'screens/login_screen.dart';
 import 'screens/complete_profile_screen.dart';
 import 'providers/app_config_provider.dart';
 import 'widgets/dev_mode_banner.dart';
+import 'widgets/force_update_gate.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -188,6 +189,20 @@ void main() async {
         ChangeNotifierProvider(create: (_) => SecurityProvider()),
         ChangeNotifierProvider(create: (_) => UssdProvider()),
         ChangeNotifierProvider(create: (_) => HistoryProvider()),
+        // `ExpenseProvider` et `AccountProvider` restent **indépendants**.
+        //
+        // Un `ChangeNotifierProxyProvider<AccountProvider, ExpenseProvider>`
+        // permettrait d'écrire `onRefresh: provider.syncAndReloadAll` sans
+        // paramètre (cf. docs/reste-a-faire.md §5.1), mais il suppose côté
+        // `ExpenseProvider` un point d'injection et un paramètre
+        // `accountProvider` devenu optionnel : sans cela, `update` n'aurait
+        // rien à faire de la référence reçue. Il faudrait aussi déclarer
+        // `AccountProvider` **avant** ce provider (un proxy ne lit que ce qui
+        // est déjà déclaré) et garantir que `update` rende *toujours* la même
+        // instance — en rendre une nouvelle disposerait l'ancienne et
+        // rechargerait tout l'historique à chaque notification de solde.
+        // C'est un confort d'écriture, pas une correction : à traiter en même
+        // temps que la signature des méthodes du provider, pas avant.
         ChangeNotifierProvider(create: (_) => ExpenseProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => AccountProvider()),
@@ -298,26 +313,30 @@ class FimusApp extends StatelessWidget {
           value: systemUiOverlayStyleFor(isDark),
           child: Directionality(
             textDirection: TextDirection.ltr,
-            child: Column(
-              children: [
-                // En edge-to-edge, la banner DEV doit passer sous la barre de
-                // statut ; le navigateur perd alors son padding top (déjà
-                // consommé par la banner) pour éviter un double décalage.
-                if (showDevBanner)
-                  const SafeArea(
-                    bottom: false,
-                    child: DevModeBanner(),
+            // Mise à jour Play Store obligatoire dès que l'appareil est en
+            // ligne : l'écran bloquant recouvre tout, dialogues compris.
+            child: ForceUpdateGate(
+              child: Column(
+                children: [
+                  // En edge-to-edge, la banner DEV doit passer sous la barre de
+                  // statut ; le navigateur perd alors son padding top (déjà
+                  // consommé par la banner) pour éviter un double décalage.
+                  if (showDevBanner)
+                    const SafeArea(
+                      bottom: false,
+                      child: DevModeBanner(),
+                    ),
+                  Expanded(
+                    child: showDevBanner
+                        ? MediaQuery.removePadding(
+                            context: context,
+                            removeTop: true,
+                            child: child ?? const SizedBox.shrink(),
+                          )
+                        : child ?? const SizedBox.shrink(),
                   ),
-                Expanded(
-                  child: showDevBanner
-                      ? MediaQuery.removePadding(
-                          context: context,
-                          removeTop: true,
-                          child: child ?? const SizedBox.shrink(),
-                        )
-                      : child ?? const SizedBox.shrink(),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

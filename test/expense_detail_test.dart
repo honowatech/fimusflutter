@@ -99,7 +99,9 @@ void main() {
 
     // En-tête : titre et montant.
     expect(find.text('Courses marché'), findsOneWidget);
-    expect(find.text('-25 000.00 CFA'), findsOneWidget);
+    // Le profil de test porte encore l'alias historique « CFA » : depuis le
+    // passage par MoneyFormatter, il est normalisé en code ISO à l'affichage.
+    expect(find.text('-25 000.00 XAF'), findsOneWidget);
 
     // Informations détaillées.
     expect(find.text('Détails de l\'opération'), findsOneWidget);

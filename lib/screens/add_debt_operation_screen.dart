@@ -7,14 +7,13 @@ import '../providers/account_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/contact_provider.dart';
 import '../utils/app_theme.dart';
+import '../utils/currency_converter.dart';
 import '../utils/formatters.dart';
 import '../utils/translation_helper.dart';
 import '../providers/auth_provider.dart';
 import '../models/contact.dart';
 import '../models/expense.dart';
-import '../services/sync_service.dart';
 import '../services/auth_service.dart';
-import '../services/database_service.dart';
 import '../widgets/add_contact_bottom_sheet.dart';
 import 'package:uuid/uuid.dart';
 
@@ -220,7 +219,6 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
 
       final l10n = AppLocalizations.of(context)!;
       _showLoader();
-      bool isSuccessLocally = false;
 
       try {
         final authUser = await AuthService().getCachedUser();
@@ -240,78 +238,103 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
             : (_isIncome ? 'Emprunt' : 'Prêt');
         double amountToRecord = _isCreditSimulation ? _totalDebtAmount : _amount;
 
-        await DatabaseService.instance.runTransaction((txn) async {
-          await expenseProvider.addExpense(Expense(
-            id: const Uuid().v4(),
-            title: generatedTitle,
-            amount: amountToRecord,
-            category: _isLinkedToCashFlow ? (_selectedCategory ?? 'Remboursement') : 'Dette',
-            date: _selectedDate,
-            type: _isIncome ? 'income' : 'expense',
-            accountId: _isLinkedToCashFlow ? _selectedAccountId : null,
-            debtTag: _selectedDebtTag,
-            debtorUserId: debtorUserId,
-            isLinkedToCashFlow: _isLinkedToCashFlow,
-            note: _addComment ? _comment : null,
-            interestRate: _isCreditSimulation ? _interestRate : null,
-            repaymentDuration: _isCreditSimulation ? _repaymentDuration : null,
-            durationUnit: _isCreditSimulation ? _durationUnit : null,
-            repaymentFrequency: _isCreditSimulation ? _repaymentFrequency : null,
-            installmentAmount: _isCreditSimulation ? _installmentAmount : null,
-            dueDate: (!_isCreditSimulation && _hasDueDate) ? _selectedDueDate : null,
-            creatorId: currentUserId,
-            creatorName: currentUserName,
-          ), executor: txn);
+        final operation = Expense(
+          id: const Uuid().v4(),
+          title: generatedTitle,
+          amount: amountToRecord,
+          category: _isLinkedToCashFlow ? (_selectedCategory ?? 'Remboursement') : 'Dette',
+          date: _selectedDate,
+          type: _isIncome ? 'income' : 'expense',
+          accountId: _isLinkedToCashFlow ? _selectedAccountId : null,
+          debtTag: _selectedDebtTag,
+          debtorUserId: debtorUserId,
+          isLinkedToCashFlow: _isLinkedToCashFlow,
+          note: _addComment ? _comment : null,
+          interestRate: _isCreditSimulation ? _interestRate : null,
+          repaymentDuration: _isCreditSimulation ? _repaymentDuration : null,
+          durationUnit: _isCreditSimulation ? _durationUnit : null,
+          repaymentFrequency: _isCreditSimulation ? _repaymentFrequency : null,
+          installmentAmount: _isCreditSimulation ? _installmentAmount : null,
+          dueDate: (!_isCreditSimulation && _hasDueDate) ? _selectedDueDate : null,
+          creatorId: currentUserId,
+          creatorName: currentUserName,
+        );
 
-          if (_isCreditSimulation) {
-            double durationInYears = _durationUnit == 'Années' ? _repaymentDuration.toDouble() : _repaymentDuration / 12;
-            int n = 1;
-            if (_repaymentFrequency == 'Mensuelle') n = (durationInYears * 12).round();
-            else if (_repaymentFrequency == 'Hebdomadaire') n = (durationInYears * 52).round();
-            else if (_repaymentFrequency == 'Quotidienne') n = (durationInYears * 365).round();
-            else if (_repaymentFrequency == 'Annuelle') n = durationInYears.round();
-            if (n <= 0) n = 1;
+        // Échéances prévisionnelles d'une simulation de crédit : lignes
+        // satellites, planifiées et hors trésorerie. Elles sont composées
+        // **avant** l'appel pour que le provider les insère dans la même
+        // transaction que l'opération, sans imputation au solde.
+        final echeances = <Expense>[];
+        if (_isCreditSimulation) {
+          double durationInYears = _durationUnit == 'Années' ? _repaymentDuration.toDouble() : _repaymentDuration / 12;
+          int n = 1;
+          if (_repaymentFrequency == 'Mensuelle') n = (durationInYears * 12).round();
+          else if (_repaymentFrequency == 'Hebdomadaire') n = (durationInYears * 52).round();
+          else if (_repaymentFrequency == 'Quotidienne') n = (durationInYears * 365).round();
+          else if (_repaymentFrequency == 'Annuelle') n = durationInYears.round();
+          if (n <= 0) n = 1;
 
-            for (int i = 1; i <= n; i++) {
-              DateTime nextDate = _selectedDate;
-              if (_repaymentFrequency == 'Mensuelle') nextDate = DateTime(_selectedDate.year, _selectedDate.month + i, _selectedDate.day);
-              else if (_repaymentFrequency == 'Hebdomadaire') nextDate = _selectedDate.add(Duration(days: 7 * i));
-              else if (_repaymentFrequency == 'Quotidienne') nextDate = _selectedDate.add(Duration(days: i));
-              else if (_repaymentFrequency == 'Annuelle') nextDate = DateTime(_selectedDate.year + i, _selectedDate.month, _selectedDate.day);
+          for (int i = 1; i <= n; i++) {
+            DateTime nextDate = _selectedDate;
+            if (_repaymentFrequency == 'Mensuelle') nextDate = DateTime(_selectedDate.year, _selectedDate.month + i, _selectedDate.day);
+            else if (_repaymentFrequency == 'Hebdomadaire') nextDate = _selectedDate.add(Duration(days: 7 * i));
+            else if (_repaymentFrequency == 'Quotidienne') nextDate = _selectedDate.add(Duration(days: i));
+            else if (_repaymentFrequency == 'Annuelle') nextDate = DateTime(_selectedDate.year + i, _selectedDate.month, _selectedDate.day);
 
-              await expenseProvider.addExpense(Expense(
-                id: const Uuid().v4(),
-                title: 'Échéance $i/$n',
-                amount: _installmentAmount,
-                category: 'Remboursement de dette',
-                date: nextDate,
-                type: 'expense',
-                debtTag: _selectedDebtTag,
-                debtorUserId: debtorUserId,
-                isLinkedToCashFlow: false,
-                isPlanned: true,
-                creatorId: currentUserId,
-                creatorName: currentUserName,
-              ), executor: txn);
-            }
+            echeances.add(Expense(
+              id: const Uuid().v4(),
+              title: 'Échéance $i/$n',
+              amount: _installmentAmount,
+              category: 'Remboursement de dette',
+              date: nextDate,
+              type: 'expense',
+              debtTag: _selectedDebtTag,
+              debtorUserId: debtorUserId,
+              isLinkedToCashFlow: false,
+              isPlanned: true,
+              creatorId: currentUserId,
+              creatorName: currentUserName,
+            ));
           }
-
-          if (_isLinkedToCashFlow && _selectedAccountId != null) {
-            await accountProvider.updateBalance(
-              _selectedAccountId!, 
-              _isIncome ? _amount : -_amount,
-              executor: txn,
-            );
-          }
-        });
-        
-        isSuccessLocally = true;
-        await SyncService().push();
-        
-        if (mounted) {
-          Navigator.pop(context); // Close loader
-          Navigator.pop(context, true); // Close screen
         }
+
+        // Opération, échéances et imputation du solde (convertie) dans une
+        // transaction unique. En simulation de crédit, la ligne porte le total
+        // dû alors que seul le principal entre en caisse : `balanceAmount` les
+        // dissocie.
+        final result = await expenseProvider.addExpenseWithBalance(
+          operation,
+          accountProvider: accountProvider,
+          additionalExpenses: echeances,
+          balanceAmount: _isCreditSimulation ? _amount : null,
+        );
+
+        if (!mounted) return;
+        Navigator.pop(context); // Close loader
+
+        // Refus faute de taux : rien n'a été écrit, ni l'opération ni les
+        // échéances. Le formulaire reste ouvert pour permettre un nouvel essai.
+        if (!result.isSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result.isRateUnavailable
+                    ? l10n.balanceRateUnavailable(
+                        result.missingFrom ?? '?', result.missingTo ?? '?')
+                    : l10n.operationNotFound,
+              ),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              margin: const EdgeInsets.all(16),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          return;
+        }
+
+        Navigator.pop(context, true); // Close screen
       } catch (e) {
         // Le détail technique reste dans les logs : l'utilisateur ne voit
         // qu'un message générique traduit.
@@ -326,9 +349,11 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                       errorString.contains('connexion') ||
                                       errorString.contains('404');
 
-          final String errorMessage = (isSuccessLocally && isNetworkOrSyncError)
-              ? l10n.savedLocallyWillSync
-              : l10n.genericErrorRetry;
+          // Le push est désormais déclenché par `addExpense` en arrière-plan :
+          // une panne réseau ne remonte plus jusqu'ici. Tout ce qui atteint ce
+          // `catch` a donc échoué **avant** ou **pendant** l'écriture, qui est
+          // alors annulée : plus de « enregistré localement, sera synchronisé ».
+          final String errorMessage = l10n.genericErrorRetry;
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -362,10 +387,6 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
               duration: const Duration(seconds: 5),
             ),
           );
-
-          if (isSuccessLocally) {
-            Navigator.pop(context, true); // Close screen if successfully saved locally
-          }
         }
       }
     }
@@ -427,6 +448,20 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
         : ['Remboursement', ...baseCategories];
     final accounts = Provider.of<AccountProvider>(context).accounts;
     final currency = Provider.of<ProfileProvider>(context).profile.currency;
+    // Devise de saisie : celle du compte imputé quand l'opération touche la
+    // trésorerie, sinon celle du profil — exactement la règle que
+    // `ExpenseProvider` appliquera en estampillant la ligne. Distincte de
+    // `currency`, qui reste la devise du profil pour les agrégats de dette.
+    final entryCurrency = CurrencyConverter.resolveForNewOperation(
+          accountCurrency: (_isLinkedToCashFlow && _selectedAccountId != null)
+              ? accounts
+                  .where((a) => a.id == _selectedAccountId)
+                  .firstOrNull
+                  ?.currency
+              : null,
+          profileCurrency: currency,
+        ) ??
+        currency;
     final debtTags = expenseProvider.debtTags;
     final authUser = Provider.of<AuthProvider>(context).user;
     final currentUserEmail = authUser?['email']?.toString().toLowerCase() ?? '';
@@ -666,10 +701,10 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                 controller: _amountController,
                 decoration: InputDecoration(
                   labelText: l10n.amount, 
-                  prefixText: '$currency ',
+                  prefixText: '$entryCurrency ',
                   helperText: _isCreditSimulation 
                       ? l10n.debtOpTotalToRepay(
-                          _totalDebtAmount.toStringAsFixed(2), currency)
+                          _totalDebtAmount.toStringAsFixed(2), entryCurrency)
                       : null,
                   helperStyle: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
@@ -684,6 +719,22 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                   return null;
                 },
                 onSaved: (val) => _amount = double.parse(val!.replaceAll(RegExp(r'\s+'), '').replaceAll(',', '.')),
+              ),
+              const SizedBox(height: 6),
+              // Devise de saisie annoncée en clair : elle suit le compte imputé
+              // quand l'opération touche la trésorerie, sinon le profil. Sur un
+              // compte en devise étrangère, le préfixe du champ passe inaperçu.
+              Row(
+                children: [
+                  Icon(Icons.currency_exchange,
+                      size: 16, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Text(
+                    l10n.entryCurrencyHint(entryCurrency),
+                    style: TextStyle(
+                        fontSize: 12, color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -810,7 +861,7 @@ class _AddDebtOperationScreenState extends State<AddDebtOperationScreen> {
                                 Text(l10n.amountPerInstallment, style: const TextStyle(fontSize: 14)),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '${_installmentAmount.toStringAsFixed(2)} $currency',
+                                  '${_installmentAmount.toStringAsFixed(2)} $entryCurrency',
                                   style: TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,

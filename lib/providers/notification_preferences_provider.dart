@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/notification_preferences.dart';
+import '../services/alerts/alert_settings_store.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../utils/api_client.dart';
@@ -57,6 +58,9 @@ class NotificationPreferencesProvider extends ChangeNotifier {
     if (cached == null || _preferences != null) return;
     _preferences = cached;
     notifyListeners();
+    // Le miroir des alertes peut être en retard (mise à jour de l'app,
+    // réinstallation) : on le remet d'aplomb sans attendre le réseau.
+    await _mirrorAlertSettings(cached);
   }
 
   /// Lecture du cache sans passer par le provider : utilisable depuis un
@@ -83,6 +87,22 @@ class NotificationPreferencesProvider extends ChangeNotifier {
       await prefs.setString(cacheKey, jsonEncode(value.toJson()));
     } catch (e) {
       debugPrint('Error caching notification preferences: $e');
+    }
+    // Les quatre clés d'alerte (`notify_budget_threshold`,
+    // `notify_low_balance`, `notify_unsynced_data`,
+    // `unsynced_threshold_hours`) font foi ici : `AlertSettings` n'en garde
+    // qu'un miroir, que l'évaluateur relit hors ligne.
+    await _mirrorAlertSettings(value);
+  }
+
+  /// Recopie les quatre clés d'alerte dans le cache hors ligne lu par
+  /// `AlertEvaluator`. Ne lève jamais : un miroir non écrit sera rattrapé à la
+  /// prochaine évaluation, qui le rafraîchit aussi.
+  Future<void> _mirrorAlertSettings(NotificationPreferences value) async {
+    try {
+      await const AlertSettingsStore().mirrorNotificationPreferences(value);
+    } catch (e) {
+      debugPrint('Error mirroring alert preferences: $e');
     }
   }
 

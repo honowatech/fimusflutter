@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:monitrack/l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
+import '../providers/account_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/contact_provider.dart';
 import '../models/expense.dart';
@@ -10,8 +11,78 @@ import 'add_debt_operation_screen.dart';
 import 'debt_detail_screen.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/currency_converter.dart';
 import '../utils/formatters.dart';
-import '../services/sync_service.dart';
+import '../services/exchange_rate_service.dart';
+
+/// Solde d'une dette accompagné de la devise dans laquelle il a un sens.
+///
+/// Une dette dont toutes les opérations partagent une devise **doit** rester
+/// libellée dans celle-ci : c'est la seule lecture juste d'un emprunt contracté
+/// à l'étranger. Dès que plusieurs devises se mêlent, la seule somme homogène
+/// est celle ramenée à la devise du profil — [converti] le signale.
+///
+/// Ce calcul a sa place dans `ExpenseProvider` (`getDebtBalance` additionne
+/// encore des montants bruts, toutes devises confondues) ; il est ici en
+/// attendant d'y remonter. `DebtDetailScreen` le réutilise.
+class SoldeDette {
+  const SoldeDette({
+    required this.montant,
+    required this.devise,
+    required this.montantProfil,
+    required this.converti,
+  });
+
+  /// Montant exprimé dans [devise].
+  final double montant;
+
+  /// Devise de [montant] : celle des opérations si elles s'accordent, celle du
+  /// profil sinon.
+  final String devise;
+
+  /// Le même solde ramené à la devise du profil : seule valeur additionnable
+  /// d'une dette à l'autre.
+  final double montantProfil;
+
+  /// Vrai quand les opérations mêlent plusieurs devises ; [montant] vaut alors
+  /// [montantProfil].
+  final bool converti;
+
+  /// Signe conservé de `ExpenseProvider.getDebtBalance` : négatif = dette,
+  /// positif = créance.
+  static SoldeDette calculer(
+    Iterable<Expense> operations, {
+    required String profileCurrency,
+    required Map<String, double> activeRates,
+  }) {
+    final devises = <String>{};
+    double brut = 0.0;
+    double enDeviseProfil = 0.0;
+
+    for (final op in operations.where((e) => !e.isPlanned)) {
+      // Contrat du palier 19 : une devise nulle s'interprète dans celle du
+      // profil, on ne devine rien de plus.
+      final devise = MoneyFormatter.label(op.currency, profileCurrency);
+      devises.add(devise);
+      final signe = op.type == 'expense' ? op.amount : -op.amount;
+      brut += signe;
+      enDeviseProfil += CurrencyConverter.convertForDisplay(
+        amount: signe,
+        from: devise,
+        to: profileCurrency,
+        activeRates: activeRates,
+      );
+    }
+
+    final deviseUnique = devises.length == 1 ? devises.first : null;
+    return SoldeDette(
+      montant: deviseUnique != null ? brut : enDeviseProfil,
+      devise: deviseUnique ?? MoneyFormatter.label(null, profileCurrency),
+      montantProfil: enDeviseProfil,
+      converti: deviseUnique == null,
+    );
+  }
+}
 
 class DebtScreen extends StatefulWidget {
   static final GlobalKey<DebtScreenState> globalKey = GlobalKey<DebtScreenState>();
@@ -26,6 +97,12 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
   late TabController _tabController;
   String _listFilter = 'all'; // all, active, debts, receivables, settled
 
+  /// Taux de change actifs, chargés **une fois pour l'écran** : convertir un
+  /// agrégat ne doit pas déclencher une lecture du cache par ligne de liste.
+  /// Tant qu'ils ne sont pas là, `CurrencyConverter` se rabat sur sa table
+  /// statique, ce qui reste exploitable (§3.1).
+  Map<String, double> _rates = const {};
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +111,44 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
       if (!mounted) return;
       context.read<ContactProvider>().fetchContacts();
     });
+    _chargerTaux();
+  }
+
+  Future<void> _chargerTaux() async {
+    final rates = await ExchangeRateService().getRates();
+    if (!mounted) return;
+    setState(() => _rates = rates);
+  }
+
+  /// Solde d'une dette prêt à afficher, dans sa devise quand elle est unique.
+  SoldeDette _soldeDette(ExpenseProvider provider, String tag, String currency) =>
+      SoldeDette.calculer(
+        provider.getTransactionsForDebt(tag),
+        profileCurrency: currency,
+        activeRates: _rates,
+      );
+
+  /// Montant principal d'un solde de dette, toujours positif à l'affichage
+  /// (le libellé « à rembourser » / « à encaisser » porte déjà le sens).
+  String _libelleSolde(SoldeDette solde, String currency) => MoneyFormatter.format(
+        solde.montant.abs(),
+        rowCurrency: solde.devise,
+        profileCurrency: currency,
+      );
+
+  /// Équivalent dans la devise du profil, à n'afficher que si la dette est
+  /// libellée dans une autre devise : c'est cette ligne qui rend lisible une
+  /// dette contractée à l'étranger. `null` quand il n'y a rien à ajouter.
+  String? _equivalentSolde(SoldeDette solde, String currency) {
+    if (!MoneyFormatter.isForeign(solde.devise, currency)) return null;
+    // `montantProfil` est déjà ramené à la devise du profil : la conversion
+    // est ici une identité, `formatConverted` ne sert plus qu'à le libeller.
+    return '≈ ${MoneyFormatter.formatConverted(
+      solde.montantProfil.abs(),
+      rowCurrency: currency,
+      profileCurrency: currency,
+      activeRates: _rates,
+    )}';
   }
 
   String _getDisplayNameForTag(String tag, List<Contact> contacts) {
@@ -224,6 +339,8 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                     itemBuilder: (context, index) {
                       final tag = tags[index];
                       final balance = provider.getDebtBalance(tag);
+                      final solde = _soldeDette(provider, tag, currency);
+                      final equivalent = _equivalentSolde(solde, currency);
                       final isDebt = balance < 0;
                       final isSettled = balance == 0;
                       final displayName = _getDisplayNameForTag(tag, contacts);
@@ -252,15 +369,29 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                                   ? l10n.debtBadgeToRepay
                                   : l10n.debtBadgeToCollect),
                         ),
-                        trailing: Text(
-                          '${balance.abs().formatAmountDouble()} $currency',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: isSettled
-                                ? scheme.onSurfaceVariant
-                                : (isDebt ? scheme.expense : scheme.income),
-                          ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _libelleSolde(solde, currency),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isSettled
+                                    ? scheme.onSurfaceVariant
+                                    : (isDebt ? scheme.expense : scheme.income),
+                              ),
+                            ),
+                            if (equivalent != null)
+                              Text(
+                                equivalent,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
                         ),
                         onTap: () async {
                           Navigator.pop(ctx);
@@ -314,18 +445,35 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
     );
     final provider = Provider.of<ExpenseProvider>(context);
     final currency = Provider.of<ProfileProvider>(context).profile.currency;
-    
-    final totalDebts = provider.getTotalDebts();
-    final totalReceivables = provider.getTotalReceivables();
+
+    // Totaux : seuls des soldes ramenés à une même devise s'additionnent.
+    // `getTotalDebts()` / `getTotalReceivables()` somment encore des montants
+    // bruts de devises possiblement différentes, on repasse donc par les
+    // soldes convertis dette par dette.
+    double totalDebts = 0.0;
+    double totalReceivables = 0.0;
+    for (final tag in provider.debtTags) {
+      final solde = _soldeDette(provider, tag, currency).montantProfil;
+      if (solde < 0) {
+        totalDebts += solde.abs();
+      } else if (solde > 0) {
+        totalReceivables += solde;
+      }
+    }
     final recentOperations = provider.getRecentDebtTransactions(limit: 10);
 
     return RefreshIndicator(
+      // `syncAndReloadAll` et non `SyncService().fullSync()` : le verrou du
+      // provider garantit qu'un seul cycle tourne, même si un autre onglet
+      // tire en même temps.
       onRefresh: () async {
         try {
-          await SyncService().fullSync();
-        } catch (_) {}
-        if (!context.mounted) return;
-        await context.read<ExpenseProvider>().loadData();
+          await provider.syncAndReloadAll(
+            accountProvider: context.read<AccountProvider>(),
+          );
+        } catch (_) {
+          // Réseau indisponible : un tirage ne doit pas remonter d'exception.
+        }
         if (!context.mounted) return;
         await context.read<ContactProvider>().fetchContacts();
       },
@@ -341,8 +489,14 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                 child: _buildSummaryCard(
                   title: l10n.totalDebts,
                   subtitle: l10n.toRepay,
-                  amount: totalDebts,
-                  currency: currency,
+                  // Agrégat multi-devise : libellé dans la devise du profil,
+                  // seule commune à toutes les dettes.
+                  amountLabel: MoneyFormatter.formatConverted(
+                    totalDebts,
+                    rowCurrency: currency,
+                    profileCurrency: currency,
+                    activeRates: _rates,
+                  ),
                   color: debtCardBackground,
                   textColor: debtCardText,
                   icon: Icons.arrow_downward,
@@ -353,8 +507,12 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                 child: _buildSummaryCard(
                   title: l10n.totalReceivables,
                   subtitle: l10n.totalToCollect,
-                  amount: totalReceivables,
-                  currency: currency,
+                  amountLabel: MoneyFormatter.formatConverted(
+                    totalReceivables,
+                    rowCurrency: currency,
+                    profileCurrency: currency,
+                    activeRates: _rates,
+                  ),
                   color: receivableCardBackground,
                   textColor: receivableCardText,
                   icon: Icons.arrow_upward,
@@ -451,12 +609,16 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
         ),
         Expanded(
           child: RefreshIndicator(
+            // Même verrou que l'onglet Tableau de bord : la synchronisation
+            // passe par le provider, jamais par `SyncService` depuis l'UI.
             onRefresh: () async {
               try {
-                await SyncService().fullSync();
-              } catch (_) {}
-              if (!context.mounted) return;
-              await context.read<ExpenseProvider>().loadData();
+                await provider.syncAndReloadAll(
+                  accountProvider: context.read<AccountProvider>(),
+                );
+              } catch (_) {
+                // Réseau indisponible : un tirage ne remonte pas d'exception.
+              }
               if (!context.mounted) return;
               await context.read<ContactProvider>().fetchContacts();
             },
@@ -479,6 +641,8 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                     itemBuilder: (context, index) {
                       final tag = tags[index];
                       final balance = provider.getDebtBalance(tag);
+                      final solde = _soldeDette(provider, tag, currency);
+                      final equivalent = _equivalentSolde(solde, currency);
                       final isDebt = balance < 0;
                       final isSettled = balance == 0;
 
@@ -488,13 +652,24 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
                         child: ListTile(
                           title: Text(_getDisplayNameForTag(tag, contacts), style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(isSettled ? l10n.filterSettled : (isDebt ? l10n.debts : l10n.receivables)),
-                          trailing: Text(
-                            '${balance.abs().formatAmountDouble()} $currency',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: isSettled ? scheme.onSurfaceVariant : (isDebt ? scheme.expense : scheme.income),
-                            ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                _libelleSolde(solde, currency),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: isSettled ? scheme.onSurfaceVariant : (isDebt ? scheme.expense : scheme.income),
+                                ),
+                              ),
+                              if (equivalent != null)
+                                Text(
+                                  equivalent,
+                                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                                ),
+                            ],
                           ),
                           onTap: () {
                             Navigator.push(
@@ -515,8 +690,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
   Widget _buildSummaryCard({
     required String title,
     String? subtitle,
-    required double amount,
-    required String currency,
+    required String amountLabel,
     required Color color,
     required Color textColor,
     required IconData icon,
@@ -549,7 +723,7 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${amount.formatAmountDouble()} $currency',
+              amountLabel,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -621,13 +795,34 @@ class DebtScreenState extends State<DebtScreen> with SingleTickerProviderStateMi
               ),
           ],
         ),
-        trailing: Text(
-          '$sign${op.amount.toStringAsFixed(2)} $currency',
-          style: TextStyle(
-            color: amountColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Opération isolée : affichée dans sa devise de saisie.
+            Text(
+              '$sign${MoneyFormatter.format(
+                op.amount,
+                rowCurrency: op.currency,
+                profileCurrency: currency,
+              )}',
+              style: TextStyle(
+                color: amountColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            if (MoneyFormatter.isForeign(op.currency, currency))
+              Text(
+                '≈ ${MoneyFormatter.formatConverted(
+                  op.amount,
+                  rowCurrency: op.currency,
+                  profileCurrency: currency,
+                  activeRates: _rates,
+                )}',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
+          ],
         ),
       ),
     );

@@ -10,13 +10,14 @@ import '../providers/auth_provider.dart';
 import '../models/account.dart';
 import '../models/expense.dart';
 import '../utils/app_theme.dart';
+import '../utils/currency_converter.dart';
 import '../utils/formatters.dart';
 import '../utils/translation_helper.dart';
 import '../widgets/add_account_bottom_sheet.dart';
 import '../widgets/share_account_dialog.dart';
 import 'add_expense_screen.dart';
 import 'expense_detail_screen.dart';
-import '../services/database_service.dart';
+import '../services/exchange_rate_service.dart';
 
 class AccountDetailScreen extends StatefulWidget {
   final String accountId;
@@ -34,6 +35,11 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
   DateTimeRange? _customDateRange;
   String? _categoryFilter;
   String? _contributorFilter;
+
+  /// Taux de change actifs, chargés **une fois pour l'écran** : les agrégats de
+  /// période convertissent chaque opération, il est hors de question de relire
+  /// le cache à chaque ligne.
+  Map<String, double> _rates = const {};
 
   /// Palette d'identité des pôles de dépense.
   ///
@@ -58,7 +64,26 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _chargerTaux();
   }
+
+  Future<void> _chargerTaux() async {
+    final rates = await ExchangeRateService().getRates();
+    if (!mounted) return;
+    setState(() => _rates = rates);
+  }
+
+  /// Montant d'une opération ramené à la devise du profil, pour les agrégats de
+  /// période (totaux, pôles, contributeurs) : un compte peut porter des lignes
+  /// antérieures au palier 19 ou saisies dans une autre devise, et une somme de
+  /// devises différentes n'a aucun sens.
+  double _enDeviseProfil(Expense e, String currency) =>
+      CurrencyConverter.convertForDisplay(
+        amount: e.amount,
+        from: e.currency,
+        to: currency,
+        activeRates: _rates,
+      );
 
   @override
   void dispose() {
@@ -283,13 +308,15 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
     final Map<String, int> contributorCounts = {};
 
     for (final t in periodTransactions) {
+      // Agrégats : chaque ligne est convertie avant d'être additionnée.
+      final montant = _enDeviseProfil(t, currency);
       if (t.type == 'income') {
-        periodIncomes += t.amount;
+        periodIncomes += montant;
       } else {
-        periodExpenses += t.amount;
+        periodExpenses += montant;
         // By Category
         final cat = t.category.isNotEmpty ? t.category : 'Autre';
-        categoryAmounts[cat] = (categoryAmounts[cat] ?? 0.0) + t.amount;
+        categoryAmounts[cat] = (categoryAmounts[cat] ?? 0.0) + montant;
         categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
 
         // By Contributor
@@ -298,7 +325,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
             : (t.creatorId != null && t.creatorId == currentUserId?.toString()
                 ? l10n.createdByMe
                 : l10n.createdByMember);
-        contributorAmounts[contributor] = (contributorAmounts[contributor] ?? 0.0) + t.amount;
+        contributorAmounts[contributor] = (contributorAmounts[contributor] ?? 0.0) + montant;
         contributorCounts[contributor] = (contributorCounts[contributor] ?? 0) + 1;
       }
     }
@@ -414,14 +441,34 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
                       ),
                     ),
                     const SizedBox(height: 2),
+                    // Le solde est tenu dans la devise du compte : c'est dans
+                    // celle-là qu'il se lit, l'équivalent profil vient dessous.
                     Text(
-                      '${account.balance.formatAmountDouble()} $currency',
+                      MoneyFormatter.format(
+                        account.balance,
+                        rowCurrency: account.currency,
+                        profileCurrency: currency,
+                      ),
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: balanceColor,
                       ),
                     ),
+                    if (MoneyFormatter.isForeign(account.currency, currency))
+                      Text(
+                        '≈ ${MoneyFormatter.formatConverted(
+                          account.balance,
+                          rowCurrency: account.currency,
+                          profileCurrency: currency,
+                          activeRates: _rates,
+                        )}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                   ],
                 ),
                 if (account.isShared)
@@ -609,13 +656,34 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
                         ),
                         title: Text(transaction.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text(subtitleText, style: const TextStyle(fontSize: 12)),
-                        trailing: Text(
-                          '${isIncome ? '+' : '-'}${transaction.amount.formatAmountDouble()} $currency',
-                          style: TextStyle(
-                            color: isIncome ? scheme.income : scheme.expense,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // Opération isolée : dans sa devise de saisie.
+                            Text(
+                              '${isIncome ? '+' : '-'}${MoneyFormatter.format(
+                                transaction.amount,
+                                rowCurrency: transaction.currency,
+                                profileCurrency: currency,
+                              )}',
+                              style: TextStyle(
+                                color: isIncome ? scheme.income : scheme.expense,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (MoneyFormatter.isForeign(transaction.currency, currency))
+                              Text(
+                                '≈ ${MoneyFormatter.formatConverted(
+                                  transaction.amount,
+                                  rowCurrency: transaction.currency,
+                                  profileCurrency: currency,
+                                  activeRates: _rates,
+                                )}',
+                                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                              ),
+                          ],
                         ),
                         onTap: () {
                           Navigator.push(
@@ -639,7 +707,6 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
     final l10n = AppLocalizations.of(context)!;
     final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
     final accountProvider = Provider.of<AccountProvider>(context, listen: false);
-    final isIncome = transaction.type == 'income';
 
     showDialog(
       context: context,
@@ -653,17 +720,31 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
           ),
           TextButton(
             onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(ctx);
-              await DatabaseService.instance.runTransaction((txn) async {
-                if (transaction.accountId != null) {
-                  await accountProvider.updateBalance(
-                    transaction.accountId!,
-                    isIncome ? -transaction.amount : transaction.amount,
-                    executor: txn,
-                  );
-                }
-                await expenseProvider.deleteExpense(transaction.id, executor: txn);
-              });
+              // Suppression et réajustement du solde en une écriture, dans la
+              // devise de l'opération : le provider refuse tout si le taux
+              // manque plutôt que d'écrire un solde faux.
+              final result = await expenseProvider.deleteExpenseAndAdjustBalance(
+                transaction,
+                accountProvider: accountProvider,
+              );
+              if (!mounted || result.isSuccess) return;
+              // Refus : rien n'a été supprimé, l'opération est toujours dans
+              // la liste — on l'annonce au lieu de laisser croire au succès.
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    result.isRateUnavailable
+                        ? l10n.balanceRateUnavailable(
+                            result.missingFrom ?? '?',
+                            result.missingTo ?? '?',
+                          )
+                        : l10n.operationNotFound,
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
             },
             style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
             child: Text(l10n.delete),
@@ -736,7 +817,11 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
                         ),
                       ),
                       Text(
-                        '${isIncome ? '+' : '-'}${transaction.amount.formatAmountDouble()} $currency',
+                        '${isIncome ? '+' : '-'}${MoneyFormatter.format(
+                          transaction.amount,
+                          rowCurrency: transaction.currency,
+                          profileCurrency: currency,
+                        )}',
                         style: TextStyle(
                           color: isIncome ? scheme.income : scheme.expense,
                           fontWeight: FontWeight.bold,
@@ -920,7 +1005,14 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '${periodExpenses.formatAmountDouble()} $currency',
+                          // Agrégat déjà ramené à la devise du profil ligne à
+                          // ligne : `formatConverted` ne fait plus que libeller.
+                          MoneyFormatter.formatConverted(
+                            periodExpenses,
+                            rowCurrency: currency,
+                            profileCurrency: currency,
+                            activeRates: _rates,
+                          ),
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: expenseCardAmount),
                         ),
                       ),
@@ -945,7 +1037,12 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '${periodIncomes.formatAmountDouble()} $currency',
+                          MoneyFormatter.formatConverted(
+                            periodIncomes,
+                            rowCurrency: currency,
+                            profileCurrency: currency,
+                            activeRates: _rates,
+                          ),
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: incomeCardAmount),
                         ),
                       ),
@@ -1031,7 +1128,12 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
                                   ],
                                 ),
                                 Text(
-                                  '${amount.formatAmountDouble()} $currency (${percentage.toStringAsFixed(1)}%)',
+                                  '${MoneyFormatter.formatConverted(
+                                    amount,
+                                    rowCurrency: currency,
+                                    profileCurrency: currency,
+                                    activeRates: _rates,
+                                  )} (${percentage.toStringAsFixed(1)}%)',
                                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                                 ),
                               ],
@@ -1125,7 +1227,12 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> with SingleTi
                                     ),
                                   ),
                                   Text(
-                                    '${amount.formatAmountDouble()} $currency (${percentage.toStringAsFixed(1)}%)',
+                                    '${MoneyFormatter.formatConverted(
+                                      amount,
+                                      rowCurrency: currency,
+                                      profileCurrency: currency,
+                                      activeRates: _rates,
+                                    )} (${percentage.toStringAsFixed(1)}%)',
                                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                                   ),
                                 ],

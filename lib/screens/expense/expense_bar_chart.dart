@@ -4,13 +4,17 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../utils/app_theme.dart';
-import '../../utils/formatters.dart';
+import 'currency_display.dart';
 import 'expense_chart_data.dart';
 
 /// Histogramme revenus / dépenses du tableau de bord.
+///
+/// [data] contient déjà des montants ramenés à [currency] par
+/// [aggregateDailyData] ; [converted] dit si une conversion a eu lieu, pour que
+/// l'infobulle n'annonce pas un chiffre exact qui ne l'est pas.
 Widget buildExpenseBarChart(
     List<Map<String, dynamic>> data, bool showIncome, bool showExpense, String currency,
-    ColorScheme colorScheme) {
+    ColorScheme colorScheme, {bool converted = false}) {
   double maxY = 0;
   for (final d in data) {
     if (showIncome) maxY = max(maxY, (d['income'] as double));
@@ -41,7 +45,11 @@ Widget buildExpenseBarChart(
             final value = isIncomeBar ? d['income'] : d['expense'];
             final label = isIncomeBar ? '+' : '-';
             return BarTooltipItem(
-              '$label${(value as double).formatAmount()} $currency',
+              formatAggregate(
+                ConvertedTotal(value as double, converted: converted),
+                profileCurrency: currency,
+                prefix: label,
+              ),
               TextStyle(
                 color: isIncomeBar ? Colors.greenAccent : Colors.redAccent.shade100,
                 fontWeight: FontWeight.bold,

@@ -224,7 +224,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     validator: (v) {
                       if (v == null || v.isEmpty) return l10n.required;
+                      // Mêmes règles que le serveur
+                      // (`Password::min(8)->mixedCase()->numbers()`) et que
+                      // l'écran de réinitialisation : sans elles, un mot de
+                      // passe accepté ici était rejeté en 422 à l'envoi.
                       if (v.length < 8) return l10n.min8Chars;
+                      if (!RegExp(r'[a-z]').hasMatch(v) ||
+                          !RegExp(r'[A-Z]').hasMatch(v)) {
+                        return l10n.passwordNeedsMixedCase;
+                      }
+                      if (!RegExp(r'[0-9]').hasMatch(v)) {
+                        return l10n.passwordNeedsDigit;
+                      }
                       return null;
                     },
                   ),

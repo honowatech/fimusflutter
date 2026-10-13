@@ -1,15 +1,32 @@
 import 'package:flutter/foundation.dart';
 
+import '../../models/notification_preferences.dart';
 import '../../utils/category_normalizer.dart';
 
-/// Réglages des alertes locales de finances personnelles (sprint 4).
+/// Réglages des alertes locales de finances personnelles.
 ///
-/// **Stockage** : SharedPreferences, clé `alerts_settings_v1`
-/// (`AlertSettingsStore.settingsKey`), sérialisé en JSON. Il n'existe ni table
-/// SQLite ni endpoint serveur pour ces réglages : ils sont donc
-/// **locaux à l'appareil** et ne suivent pas
-/// l'utilisateur d'un téléphone à l'autre (limite assumée, voir le rapport de
-/// sprint pour le schéma de table proposé).
+/// **Rôle depuis le sprint 7 : cache hors ligne, pas source de vérité.**
+///
+///  * les trois interrupteurs de famille ([budgetAlertsEnabled],
+///    [lowBalanceAlertsEnabled], [unsyncedDataAlertsEnabled]) et le délai
+///    [unsyncedThresholdHours] sont un **miroir** des clés serveur
+///    `notify_budget_threshold`, `notify_low_balance`, `notify_unsynced_data`
+///    et `unsynced_threshold_hours` (`NotificationPreferences`, 14 clés).
+///    L'interface ne les écrit plus ici : elle écrit les préférences serveur,
+///    et le miroir est rafraîchi par [withNotificationPreferences] ;
+///  * les budgets par catégorie et les seuils par compte sont portables via la
+///    section `alert_settings` de `sync/push` et `sync/pull` (voir
+///    `alert_settings_sync.dart`). Ils sont projetés ici depuis le journal de
+///    synchronisation.
+///
+/// Pourquoi garder un miroir plutôt que lire le réseau : `AlertEvaluator` doit
+/// fonctionner **hors ligne**. Il ne consulte que cet objet, relu en
+/// SharedPreferences (clé `alerts_settings_v1`,
+/// `AlertSettingsStore.settingsKey`). Aucun appel réseau n'est fait sur le
+/// chemin d'une évaluation.
+///
+/// L'état anti-spam (`alerts_emission_state_v1`) reste, lui, **strictement
+/// local** : il n'est jamais poussé ni descendu.
 ///
 /// Objet **pur** : aucun plugin, aucun `BuildContext`. Toute la logique de
 /// décision qui le consomme (`alert_evaluator.dart`) l'est aussi.
@@ -23,8 +40,10 @@ class AlertSettings {
 
   /// Ancienneté par défaut au-delà de laquelle des données encore en attente
   /// d'envoi déclenchent une alerte (risque de perte au changement de
-  /// téléphone).
-  static const int defaultUnsyncedThresholdHours = 48;
+  /// téléphone). Alignée sur le défaut serveur, pour qu'un miroir jamais
+  /// rafraîchi ne diverge pas.
+  static const int defaultUnsyncedThresholdHours =
+      NotificationPreferences.defaultUnsyncedThresholdHours;
 
   /// Choix proposés dans l'écran de réglages.
   static const List<int> unsyncedThresholdChoices = <int>[24, 48, 72, 168];
@@ -38,13 +57,13 @@ class AlertSettings {
     this.unsyncedThresholdHours = defaultUnsyncedThresholdHours,
   });
 
-  /// Interrupteur « Seuil de budget par catégorie ».
+  /// Miroir de `notify_budget_threshold` (« Seuil de budget par catégorie »).
   final bool budgetAlertsEnabled;
 
-  /// Interrupteur « Solde bas par compte ».
+  /// Miroir de `notify_low_balance` (« Solde bas par compte »).
   final bool lowBalanceAlertsEnabled;
 
-  /// Interrupteur « Données non synchronisées ».
+  /// Miroir de `notify_unsynced_data` (« Données non synchronisées »).
   final bool unsyncedDataAlertsEnabled;
 
   /// Budget mensuel par catégorie de dépense. Clé : nom de catégorie
@@ -56,8 +75,23 @@ class AlertSettings {
   /// (peut être 0 : « alerte dès que le compte passe en négatif »).
   final Map<String, double> accountThresholds;
 
-  /// Ancienneté déclenchant l'alerte « données non synchronisées », en heures.
+  /// Miroir de `unsynced_threshold_hours` : ancienneté déclenchant l'alerte
+  /// « données non synchronisées », en heures.
   final int unsyncedThresholdHours;
+
+  /// Rafraîchit le miroir depuis les préférences serveur. Fonction pure ;
+  /// renvoie `this` si rien ne change, ce qui évite une écriture disque
+  /// inutile à chaque évaluation.
+  AlertSettings withNotificationPreferences(NotificationPreferences prefs) {
+    final next = copyWith(
+      budgetAlertsEnabled: prefs.notifyBudgetThreshold,
+      lowBalanceAlertsEnabled: prefs.notifyLowBalance,
+      unsyncedDataAlertsEnabled: prefs.notifyUnsyncedData,
+      unsyncedThresholdHours: NotificationPreferences
+          .clampUnsyncedThresholdHours(prefs.unsyncedThresholdHours),
+    );
+    return next == this ? this : next;
+  }
 
   /// `true` si au moins une alerte est active : permet à
   /// `LocalAlertsService.evaluate` de sortir immédiatement sans lire la base.

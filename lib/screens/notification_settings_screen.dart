@@ -49,8 +49,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       prefsProvider.loadCachedPreferences().then((_) {
         if (mounted) prefsProvider.fetchPreferences();
       });
-      // Alertes locales : réglages purement locaux, aucun appel réseau.
-      context.read<AlertSettingsProvider>().load();
+      // Budgets et seuils : lecture locale, puis migration one-shot vers le
+      // journal de synchronisation et push si nécessaire (cf.
+      // AlertSettingsProvider.load).
+      // `reload` et non `load` : un `sync/pull` a pu hydrater les budgets et
+      // les seuils depuis un autre appareil pendant que l'écran était fermé.
+      context.read<AlertSettingsProvider>().reload();
       _loadCurrency();
     });
   }
@@ -244,22 +248,30 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       );
   }
 
-  Future<void> _setQuietHoursEnabled(
+  /// Envoie des préférences modifiées et signale l'échec. Renvoie `true` si le
+  /// serveur a enregistré la modification.
+  Future<bool> _savePreferences(
     NotificationPreferencesProvider provider,
-    NotificationPreferences prefs,
-    bool enabled,
+    NotificationPreferences next,
   ) async {
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
-    final success = await provider
-        .updatePreferences(prefs.copyWith(quietHoursEnabled: enabled));
-    if (success || !mounted) return;
+    final success = await provider.updatePreferences(next);
+    if (success || !mounted) return success;
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(content: Text(l10n.notificationPreferencesSaveError)),
       );
+    return false;
   }
+
+  Future<void> _setQuietHoursEnabled(
+    NotificationPreferencesProvider provider,
+    NotificationPreferences prefs,
+    bool enabled,
+  ) =>
+      _savePreferences(provider, prefs.copyWith(quietHoursEnabled: enabled));
 
   Widget _buildReminderCard(ThemeData theme, AppLocalizations l10n) {
     return Consumer<NotificationPreferencesProvider>(
@@ -516,7 +528,27 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     await _reevaluateAlerts();
   }
 
-  Future<void> _pickUnsyncedDelay(AlertSettingsProvider provider) async {
+  /// Libellé du délai d'ancienneté.
+  ///
+  /// En jours quand la valeur en est un multiple, sinon en heures : le serveur
+  /// accepte n'importe quel entier de [1, 720], pas seulement les choix
+  /// proposés par cet écran (une valeur réglée depuis un autre client ne doit
+  /// pas s'afficher « 0 jours »).
+  String _unsyncedDelayLabel(AppLocalizations l10n, int hours) {
+    if (hours >= 24 && hours % 24 == 0) {
+      return l10n.alertUnsyncedDelayValue(hours ~/ 24);
+    }
+    return l10n.alertUnsyncedDelayHours(hours);
+  }
+
+  /// Délai d'ancienneté « données non synchronisées ».
+  ///
+  /// C'est la 14e clé du contrat (`unsynced_threshold_hours`) : elle vit sur le
+  /// serveur, pas dans `AlertSettings`, qui n'en garde qu'un miroir hors ligne.
+  Future<void> _pickUnsyncedDelay(
+    NotificationPreferencesProvider provider,
+    NotificationPreferences prefs,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final selected = await showDialog<int>(
       context: context,
@@ -525,8 +557,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         children: [
           for (final hours in AlertSettings.unsyncedThresholdChoices)
             ListTile(
-              title: Text(l10n.alertUnsyncedDelayValue(hours ~/ 24)),
-              trailing: hours == provider.settings.unsyncedThresholdHours
+              title: Text(_unsyncedDelayLabel(l10n, hours)),
+              trailing: hours == prefs.unsyncedThresholdHours
                   ? Icon(
                       Icons.check_rounded,
                       color: Theme.of(dialogContext).colorScheme.primary,
@@ -537,8 +569,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         ],
       ),
     );
-    if (selected == null) return;
-    await provider.setUnsyncedThresholdHours(selected);
+    if (selected == null || !mounted) return;
+    await _savePreferences(
+      provider,
+      prefs.copyWith(unsyncedThresholdHours: selected),
+    );
     await _reevaluateAlerts();
   }
 
@@ -552,11 +587,23 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       ..showSnackBar(SnackBar(content: Text(l10n.alertResetStateDone)));
   }
 
+  /// Carte « Alertes personnalisées ».
+  ///
+  /// Deux sources, volontairement séparées :
+  ///  * les **interrupteurs de famille** et le **délai** viennent du serveur
+  ///    (`NotificationPreferencesProvider`, 4 des 14 clés) — ils suivent
+  ///    l'utilisateur d'un appareil à l'autre ;
+  ///  * les **montants** (budgets, seuils) viennent d'`AlertSettingsProvider`,
+  ///    et sont portables via la section `alert_settings` de la
+  ///    synchronisation.
   Widget _buildLocalAlertsCard(ThemeData theme, AppLocalizations l10n) {
-    return Consumer<AlertSettingsProvider>(
-      builder: (context, provider, _) {
+    return Consumer2<AlertSettingsProvider, NotificationPreferencesProvider>(
+      builder: (context, provider, prefsProvider, _) {
         final settings = provider.settings;
-        final busy = provider.isBusy;
+        final prefs = prefsProvider.effectivePreferences;
+        final busy = provider.isBusy ||
+            prefsProvider.isLoading ||
+            prefsProvider.isSaving;
 
         Widget subEntry({
           required IconData icon,
@@ -584,24 +631,28 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
-                l10n.alertsLocalOnlyNotice,
+                // `alertsLocalOnlyNotice` annonçait l'inverse (« enregistrés
+                // sur cet appareil uniquement ») : depuis le sprint 7 ces
+                // réglages suivent le compte. La clé a été supprimée.
+                l10n.alertsPortableNotice,
                 style: theme.textTheme.bodySmall,
               ),
             ),
             SwitchListTile(
               secondary: Icon(
                 Icons.pie_chart_outline_rounded,
-                color: settings.budgetAlertsEnabled
+                color: prefs.notifyBudgetThreshold
                     ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               title: Text(l10n.alertBudgetSwitchTitle),
               subtitle: Text(l10n.alertBudgetSwitchDesc),
-              value: settings.budgetAlertsEnabled,
+              value: prefs.notifyBudgetThreshold,
               onChanged: busy
                   ? null
                   : (value) async {
-                      await provider.setBudgetAlertsEnabled(value);
+                      await _savePreferences(prefsProvider,
+                          prefs.copyWith(notifyBudgetThreshold: value));
                       await _reevaluateAlerts();
                     },
             ),
@@ -611,24 +662,25 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               subtitle: settings.categoryBudgets.isEmpty
                   ? l10n.alertTrackedNone
                   : l10n.alertBudgetsCount(settings.categoryBudgets.length),
-              enabled: settings.budgetAlertsEnabled,
+              enabled: prefs.notifyBudgetThreshold,
               onTap: _openBudgetsDialog,
             ),
             const Divider(height: 1, indent: 16),
             SwitchListTile(
               secondary: Icon(
                 Icons.account_balance_wallet_rounded,
-                color: settings.lowBalanceAlertsEnabled
+                color: prefs.notifyLowBalance
                     ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               title: Text(l10n.alertLowBalanceSwitchTitle),
               subtitle: Text(l10n.alertLowBalanceSwitchDesc),
-              value: settings.lowBalanceAlertsEnabled,
+              value: prefs.notifyLowBalance,
               onChanged: busy
                   ? null
                   : (value) async {
-                      await provider.setLowBalanceAlertsEnabled(value);
+                      await _savePreferences(prefsProvider,
+                          prefs.copyWith(notifyLowBalance: value));
                       await _reevaluateAlerts();
                     },
             ),
@@ -638,34 +690,35 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               subtitle: settings.accountThresholds.isEmpty
                   ? l10n.alertTrackedNone
                   : l10n.alertThresholdsCount(settings.accountThresholds.length),
-              enabled: settings.lowBalanceAlertsEnabled,
+              enabled: prefs.notifyLowBalance,
               onTap: _openThresholdsDialog,
             ),
             const Divider(height: 1, indent: 16),
             SwitchListTile(
               secondary: Icon(
                 Icons.cloud_upload_outlined,
-                color: settings.unsyncedDataAlertsEnabled
+                color: prefs.notifyUnsyncedData
                     ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               title: Text(l10n.alertUnsyncedSwitchTitle),
               subtitle: Text(l10n.alertUnsyncedSwitchDesc),
-              value: settings.unsyncedDataAlertsEnabled,
+              value: prefs.notifyUnsyncedData,
               onChanged: busy
                   ? null
                   : (value) async {
-                      await provider.setUnsyncedDataAlertsEnabled(value);
+                      await _savePreferences(prefsProvider,
+                          prefs.copyWith(notifyUnsyncedData: value));
                       await _reevaluateAlerts();
                     },
             ),
             subEntry(
               icon: Icons.schedule_rounded,
               title: l10n.alertUnsyncedDelayTitle,
-              subtitle: l10n.alertUnsyncedDelayValue(
-                  settings.unsyncedThresholdHours ~/ 24),
-              enabled: settings.unsyncedDataAlertsEnabled,
-              onTap: () => _pickUnsyncedDelay(provider),
+              subtitle: _unsyncedDelayLabel(
+                  l10n, prefs.unsyncedThresholdHours),
+              enabled: prefs.notifyUnsyncedData,
+              onTap: () => _pickUnsyncedDelay(prefsProvider, prefs),
             ),
             const Divider(height: 1, indent: 16),
             ListTile(
